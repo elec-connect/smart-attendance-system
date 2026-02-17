@@ -4,7 +4,7 @@ services:
   - type: web
     name: smart-attendance-backend
     runtime: node
-    repo: https://github.com/votre-username/smart-attendance-system
+    repo: https://github.com/elec-connect/smart-attendance-system
     branch: main
     rootDir: backend
     buildCommand: npm install
