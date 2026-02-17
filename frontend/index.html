@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- BALISE BASE CRITIQUE POUR REACT ROUTER -->
+    <base href="/" />
+
+    <!-- TITRE -->
+    <title>Système de Présence Intelligente</title>
+
+    <!-- META TAGS -->
+    <meta name="description" content="Système de pointage intelligent avec reconnaissance faciale">
+
+    <!-- STYLES EXTERNES -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- CONTENEUR PRINCIPAL POUR REACT -->
+    <div id="root">
+        <!-- Écran de chargement simplifié -->
+        <div style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 20px;
+        ">
+            <div style="
+                width: 60px;
+                height: 60px;
+                border: 3px solid rgba(255, 255, 255, 0.3);
+                border-top-color: white;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin-bottom: 20px;
+            "></div>
+            <h1 style="font-size: 24px; margin-bottom: 10px; font-weight: 600;">
+                Système de Présence Intelligente
+            </h1>
+            <p style="opacity: 0.9; margin-bottom: 5px;">
+                Chargement de l'application...
+            </p>
+            <p style="opacity: 0.7; font-size: 14px;">
+                Veuillez patienter
+            </p>
+        </div>
+        <style>
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+        </style>
+    </div>
+
+    <!-- SCRIPT PRINCIPAL VITE -->
+    <script type="module" src="/src/main.jsx"></script>
+
+    <!-- SCRIPT SIMPLIFIÉ SANS import.meta -->
+    <script>
+        // Simple script pour détecter les routes React
+        (function() {
+        const currentPath = window.location.pathname;
+        const isReactRoute = currentPath !== '/' &&
+        !currentPath.includes('.') &&
+        !currentPath.startsWith('/api');
+
+        // Log pour debug (seulement en développement)
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        console.log('🚀 Application Smart Attendance');
+        console.log('📍 Chemin:', currentPath);
+        console.log('🌐 Environnement: Développement');
+        }
+        })();
+    </script>
+</body>
+</html>

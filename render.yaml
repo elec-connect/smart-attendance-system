@@ -1,0 +1,45 @@
+# render.yaml - À la racine de smart-attendance-system
+services:
+  # Backend API
+  - type: web
+    name: smart-attendance-backend
+    runtime: node
+    repo: https://github.com/votre-username/smart-attendance-system
+    branch: main
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: smart-attendance-db
+          property: connectionString
+      - key: FRONTEND_URL
+        value: https://smart-attendance-system.onrender.com
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        value: haouala18@gmail.com
+      - key: SMTP_PASSWORD
+        value: cvnx cruj lwdm prkp
+      - key: EMAIL_FROM
+        value: haouala18@gmail.com
+      - key: FACE_RECOGNITION_MODE
+        value: REAL
+      - key: FACE_CONFIDENCE_THRESHOLD
+        value: "0.75"
+
+databases:
+  - name: smart-attendance-db
+    databaseName: smart_attendance_db
+    user: smart_attendance_user
+    plan: free

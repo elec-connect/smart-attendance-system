@@ -1,0 +1,206 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Styles de base Tailwind */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply antialiased bg-gray-50 text-gray-900;
+  }
+  
+  /* Amélioration des styles de sélection */
+  ::selection {
+    @apply bg-primary-600 text-white;
+  }
+  
+  /* Scrollbar personnalisée */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500;
+  }
+}
+
+@layer components {
+  /* Classes personnalisées réutilisables */
+  
+  /* Cartes */
+  .card {
+    @apply bg-white rounded-lg shadow-md p-6;
+  }
+  
+  .card-hover {
+    @apply transition-shadow duration-200 hover:shadow-lg;
+  }
+  
+  /* Boutons */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-semibold transition-colors duration-200 
+           focus:outline-none focus:ring-2 focus:ring-offset-2 
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary-600 text-white hover:bg-secondary-700 focus:ring-secondary-500;
+  }
+  
+  .btn-outline {
+    @apply bg-transparent text-primary-600 border border-primary-600 
+           hover:bg-primary-50 focus:ring-primary-500;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+  }
+  
+  /* Inputs */
+  .input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg 
+           focus:outline-none focus:ring-2 focus:ring-primary-500 
+           focus:border-primary-500 disabled:bg-gray-100 disabled:cursor-not-allowed;
+  }
+  
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .badge-success {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .badge-danger {
+    @apply bg-red-100 text-red-800;
+  }
+  
+  .badge-info {
+    @apply bg-blue-100 text-blue-800;
+  }
+  
+  /* Statuts de présence */
+  .status-present {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .status-absent {
+    @apply bg-red-100 text-red-800;
+  }
+  
+  .status-late {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .status-half-day {
+    @apply bg-orange-100 text-orange-800;
+  }
+  
+  /* Table row hover */
+  .table-row-hover {
+    @apply hover:bg-gray-50 transition-colors;
+  }
+  
+  /* Loading spinner */
+  .spinner {
+    @apply animate-spin rounded-full border-2 border-gray-300 border-t-primary-600;
+  }
+  
+  /* Animations */
+  .fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideIn {
+    from {
+      transform: translateY(-10px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  /* Alertes */
+  .alert {
+    @apply p-4 rounded-lg border;
+  }
+  
+  .alert-success {
+    @apply bg-green-50 text-green-800 border-green-200;
+  }
+  
+  .alert-error {
+    @apply bg-red-50 text-red-800 border-red-200;
+  }
+  
+  .alert-warning {
+    @apply bg-yellow-50 text-yellow-800 border-yellow-200;
+  }
+  
+  .alert-info {
+    @apply bg-blue-50 text-blue-800 border-blue-200;
+  }
+  
+  /* Modales */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+  }
+  
+  .modal-content {
+    @apply bg-white rounded-lg shadow-xl max-w-lg w-full mx-4;
+  }
+  
+  /* Pagination */
+  .pagination {
+    @apply flex items-center justify-between border-t border-gray-200 px-4 py-3;
+  }
+  
+  .pagination-btn {
+    @apply relative inline-flex items-center px-2 py-2 border border-gray-300 
+           bg-white text-sm font-medium text-gray-500 hover:bg-gray-50;
+  }
+  
+  .pagination-page {
+    @apply relative inline-flex items-center px-4 py-2 border border-gray-300 
+           bg-white text-sm font-medium text-gray-700 hover:bg-gray-50;
+  }
+  
+  .pagination-active {
+    @apply z-10 bg-primary-50 border-primary-500 text-primary-600;
+  }
+}

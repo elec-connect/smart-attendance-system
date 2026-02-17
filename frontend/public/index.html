@@ -1,0 +1,36 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Attendance System</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3f51b5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Smart Attendance">
+
+    <!-- Liens PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+
+    <!-- Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+        .then(registration => {
+        console.log('Service Worker enregistré');
+        })
+        .catch(error => {
+        console.log('Erreur Service Worker:', error);
+        });
+        });
+        }
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>

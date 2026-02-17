@@ -1,0 +1,802 @@
+import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider, useAuth } from './hooks/useAuth.jsx';
+import LoginForm from './components/auth/LoginForm.jsx';
+import Navbar from './components/Navbar.jsx';
+import './App.css';
+
+// Import de l'API pour vérifier la connexion
+import api from './services/api.jsx';
+
+// Lazy loading pour optimiser le chargement
+const Dashboard = lazy(() => import('./components/dashboard/Dashboard.jsx'));
+const EmployeeList = lazy(() => import('./components/employees/EmployeeList.jsx'));
+const AttendancePage = lazy(() => import('./pages/AttendancePage.jsx'));
+const QuickCheckAttendance = lazy(() => import('./pages/attendance/QuickCheckAttendance.jsx'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage.jsx'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage.jsx'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage.jsx'));
+const FacialAttendancePage = lazy(() => import('./pages/FacialAttendancePage.jsx'));
+const EmployeeFacialRegistration = lazy(() => import('./components/employees/EmployeeFacialRegistration.jsx'));
+const FullScreenRecognition = lazy(() => import('./components/facial/FullScreenRecognition.jsx'));
+const AttendanceByFace = lazy(() => import('./components/facial/AttendanceByFace.jsx'));
+const PayrollPage = lazy(() => import('./pages/PayrollPage.jsx'));
+const PayslipPage = lazy(() => import('./pages/PayslipPage.jsx'));
+const PayslipListPage = lazy(() => import('./pages/PayslipListPage.jsx'));
+const EmployeePayroll = lazy(() => import('./components/payroll/EmployeePayroll.jsx'));
+const AttendanceCorrection = lazy(() => import('./components/attendance/AttendanceCorrection.jsx'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage.jsx')); // AJOUTÉ
+
+// Loader pour le lazy loading
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+    <div className="text-center">
+      <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+      <p className="text-gray-300 text-lg">Chargement de la page...</p>
+      <p className="text-gray-500 text-sm mt-2">Veuillez patienter</p>
+    </div>
+  </div>
+);
+
+// Badge de statut de connexion
+const ConnectionStatusBadge = ({ connected, checking }) => {
+  if (checking) {
+    return (
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 bg-yellow-500/20 text-yellow-300 rounded-full border border-yellow-500/30 backdrop-blur-sm">
+        <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+        <span className="text-xs font-medium">Vérification connexion...</span>
+      </div>
+    );
+  }
+
+  if (!connected) {
+    return (
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 bg-red-500/20 text-red-300 rounded-full border border-red-500/30 backdrop-blur-sm animate-pulse">
+        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+        <span className="text-xs font-medium">Déconnecté du serveur</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 bg-green-500/20 text-green-300 rounded-full border border-green-500/30 backdrop-blur-sm">
+      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+      <span className="text-xs font-medium">Connecté</span>
+    </div>
+  );
+};
+
+// COMPOSANT DE REDIRECTION RACINE
+const RootRedirect = () => {
+  const { isAuthenticated, loading } = useAuth();
+  
+  if (loading) {
+    return <PageLoader />;
+  }
+  
+  return (
+    <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
+  );
+};
+
+// Layout principal AVEC Navbar
+const MainLayout = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {isAuthenticated && <Navbar />}
+      <main className={isAuthenticated ? "max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8" : "w-full"}>
+        <Suspense fallback={
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+          </div>
+        }>
+          {children}
+        </Suspense>
+      </main>
+    </div>
+  );
+};
+
+// Layout pour pages pleine largeur
+const FullWidthLayout = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {isAuthenticated && <Navbar />}
+      <main className="w-full">
+        <Suspense fallback={<PageLoader />}>
+          {children}
+        </Suspense>
+      </main>
+    </div>
+  );
+};
+
+// Layout sans navbar pour plein écran
+const NoNavbarLayout = ({ children }) => {
+  return (
+    <div className="min-h-screen">
+      <main className="w-full">
+        <Suspense fallback={<PageLoader />}>
+          {children}
+        </Suspense>
+      </main>
+    </div>
+  );
+};
+
+// Composant de superposition pour les déconnexions
+const OfflineOverlay = () => {
+  const [showDetails, setShowDetails] = useState(false);
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div className="bg-gray-900 rounded-2xl p-8 max-w-md w-full mx-4 border border-red-500/30 shadow-2xl">
+        <div className="text-center mb-6">
+          <div className="w-20 h-20 bg-gradient-to-br from-red-600/20 to-red-400/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Serveur inaccessible</h2>
+          <p className="text-gray-400">Impossible de se connecter au backend</p>
+        </div>
+        
+        <div className="space-y-4">
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl"
+          >
+            Réessayer la connexion
+          </button>
+          
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="w-full py-2 px-4 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg font-medium transition-all"
+          >
+            {showDetails ? 'Masquer les détails' : 'Afficher les détails'}
+          </button>
+          
+          {showDetails && (
+            <div className="mt-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+              <h4 className="text-sm font-medium text-gray-300 mb-2">Dépannage :</h4>
+              <ul className="text-sm text-gray-400 space-y-1">
+                <li>• Vérifiez que le serveur backend est démarré</li>
+                <li>• Vérifiez votre connexion internet</li>
+                <li>• Vérifiez l'URL de l'API dans .env</li>
+                <li>• Les ports 5000 (backend) et 5173 (frontend) doivent être disponibles</li>
+              </ul>
+              <div className="mt-3 pt-3 border-t border-gray-700">
+                <p className="text-xs text-gray-500">
+                  URL actuelle: {import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}
+                </p>
+              </div>
+            </div>
+          )}
+          
+          <button
+            onClick={() => {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              window.location.href = '/login';
+            }}
+            className="w-full py-2 px-4 text-red-400 hover:text-red-300 font-medium text-sm transition-colors"
+          >
+            Se déconnecter et retourner au login
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Route protégée
+const PrivateRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  const [verificationState, setVerificationState] = useState({
+    status: 'pending',
+    checking: false
+  });
+  
+  const navigate = useNavigate();
+  const [backendStatus, setBackendStatus] = useState({
+    connected: true,
+    checking: false
+  });
+
+  // Vérifier la connexion backend
+  useEffect(() => {
+    let mounted = true;
+    
+    const checkBackendConnection = async () => {
+      if (backendStatus.checking || !mounted) return;
+      
+      setBackendStatus(prev => ({ ...prev, checking: true }));
+      
+      try {
+        const isConnected = await api.checkBackendStatus();
+        
+        if (mounted) {
+          setBackendStatus({ connected: isConnected, checking: false });
+          
+          if (!isConnected && isAuthenticated) {
+            window.dispatchEvent(new CustomEvent('backend-disconnected'));
+          }
+        }
+      } catch (error) {
+        if (mounted) {
+          console.error('Erreur vérification backend:', error);
+          setBackendStatus({ connected: false, checking: false });
+        }
+      }
+    };
+    
+    checkBackendConnection();
+    const interval = setInterval(checkBackendConnection, 60000);
+    
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    let mounted = true;
+    
+    const verifyTokenLocally = async () => {
+      if (verificationState.checking || verificationState.status !== 'pending' || !mounted) {
+        return;
+      }
+      
+      setVerificationState(prev => ({ ...prev, checking: true }));
+      
+      try {
+        const token = localStorage.getItem('token');
+        const user = localStorage.getItem('user');
+        
+        if (!token || !user) {
+          if (mounted) {
+            setVerificationState({ status: 'invalid', checking: false });
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            navigate('/login', { replace: true });
+          }
+          return;
+        }
+        
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+          if (mounted) {
+            setVerificationState({ status: 'invalid', checking: false });
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            navigate('/login', { replace: true });
+          }
+          return;
+        }
+        
+        try {
+          const payload = JSON.parse(atob(parts[1]));
+          const exp = new Date(payload.exp * 1000);
+          if (exp < new Date()) {
+            if (mounted) {
+              setVerificationState({ status: 'invalid', checking: false });
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              navigate('/login', { replace: true });
+            }
+            return;
+          }
+        } catch (e) {
+          if (mounted) {
+            setVerificationState({ status: 'invalid', checking: false });
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            navigate('/login', { replace: true });
+          }
+          return;
+        }
+        
+        if (mounted) {
+          setVerificationState({ status: 'valid', checking: false });
+        }
+        
+        setTimeout(async () => {
+          if (mounted) {
+            try {
+              await api.verifyToken();
+            } catch (error) {
+              console.warn('Token API invalide, mais token local valide');
+            }
+          }
+        }, 3000);
+        
+      } catch (error) {
+        if (mounted) {
+          console.error('❌ Erreur vérification token:', error);
+          setVerificationState({ status: 'invalid', checking: false });
+          navigate('/login', { replace: true });
+        }
+      }
+    };
+    
+    const timeoutId = setTimeout(verifyTokenLocally, 500);
+    
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, [navigate, verificationState.checking, verificationState.status]);
+
+  if (loading || verificationState.checking) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="text-center">
+          <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <p className="text-gray-300 text-lg">Vérification de l'authentification...</p>
+          <p className="text-gray-500 text-sm mt-2">Cette opération peut prendre quelques instants</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || verificationState.status === 'invalid') {
+    console.log('🚫 Accès non autorisé - Redirection vers login');
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <>
+      {!backendStatus.connected && <OfflineOverlay />}
+      
+      <ConnectionStatusBadge 
+        connected={backendStatus.connected} 
+        checking={backendStatus.checking} 
+      />
+      
+      {children}
+    </>
+  );
+};
+
+// Route protégée avec rôle spécifique
+const RoleRoute = ({ children, roles = [] }) => {
+  const { user } = useAuth();
+  
+  if (!user || !roles.includes(user.role)) {
+    console.log(`🚫 Accès non autorisé. Rôle ${user?.role} requis: ${roles.join(', ')}`);
+    
+    if (user?.role === 'employee') {
+      return <Navigate to="/dashboard" replace />;
+    }
+    
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return children;
+};
+
+const AppRoutes = () => {
+  const { user } = useAuth();
+  
+  return (
+    <Routes>
+      {/* Route racine avec redirection automatique */}
+      <Route path="/" element={<RootRedirect />} />
+      
+      {/* Route publique */}
+      <Route path="/login" element={
+        <Suspense fallback={<PageLoader />}>
+          <LoginForm />
+        </Suspense>
+      } />
+      
+      {/* Route "Mot de passe oublié" (publique) */}
+      <Route path="/forgot-password" element={
+        <Suspense fallback={<PageLoader />}>
+          <ForgotPasswordPage />
+        </Suspense>
+      } />
+      
+      {/* ========== ROUTES RÉINITIALISATION - ORDRE CORRECT ========== */}
+      {/* 1. AVEC token (DOIT ÊTRE EN PREMIER) */}
+      <Route path="/reset-password/:token" element={
+        <Suspense fallback={<PageLoader />}>
+          <ResetPasswordPage />
+        </Suspense>
+      } />
+      
+      {/* 2. SANS token (EN SECOND) */}
+      <Route path="/reset-password" element={
+        <Suspense fallback={<PageLoader />}>
+          <ResetPasswordPage />
+        </Suspense>
+      } />
+      {/* ========== FIN ROUTES RÉINITIALISATION ========== */}
+      
+      {/* Routes protégées */}
+      <Route path="/dashboard" element={
+        <PrivateRoute>
+          <MainLayout>
+            <Dashboard />
+          </MainLayout>
+        </PrivateRoute>
+      } />
+      
+      <Route path="/employees" element={
+        <PrivateRoute>
+          <RoleRoute roles={['admin', 'manager']}>
+            <MainLayout>
+              <EmployeeList />
+            </MainLayout>
+          </RoleRoute>
+        </PrivateRoute>
+      } />
+      
+      {/* Route de pointage facial principale */}
+      <Route path="/facial-attendance" element={
+        <PrivateRoute>
+          <FullWidthLayout>
+            <AttendanceByFace />
+          </FullWidthLayout>
+        </PrivateRoute>
+      } />
+      
+      <Route path="/facial-attendance-old" element={
+        <PrivateRoute>
+          <FullWidthLayout>
+            <FacialAttendancePage />
+          </FullWidthLayout>
+        </PrivateRoute>
+      } />
+      
+      {/* Page principale des pointages */}
+      <Route path="/attendance" element={
+        <PrivateRoute>
+          <MainLayout>
+            <AttendancePage />
+          </MainLayout>
+        </PrivateRoute>
+      } />
+      
+      {/* Route pour le pointage rapide (seule route pour le pointage manuel) */}
+      <Route path="/attendance/quick-check" element={
+        <PrivateRoute>
+          <RoleRoute roles={['admin', 'manager']}>
+            <MainLayout>
+              <QuickCheckAttendance />
+            </MainLayout>
+          </RoleRoute>
+        </PrivateRoute>
+      } />
+      
+      {/* Route pour la correction des pointages */}
+      <Route path="/attendance/correction/:employeeId" element={
+        <PrivateRoute>
+          <RoleRoute roles={['admin', 'manager']}>
+            <MainLayout>
+              <AttendanceCorrection />
+            </MainLayout>
+          </RoleRoute>
+        </PrivateRoute>
+      } />
+      
+      {/* Alternative: Si vous voulez garder /attendance/manual mais rediriger vers /attendance/quick-check */}
+      <Route path="/attendance/manual" element={
+        <Navigate to="/attendance/quick-check" replace />
+      } />
+      
+      {/* ============================ ROUTES PAIE ET FICHES DE PAIE ============================ */}
+      
+      {/* Route principale de paie */}
+      <Route path="/payroll" element={
+        <PrivateRoute>
+          <RoleRoute roles={['admin', 'manager']}>
+            <MainLayout>
+              <PayrollPage />
+            </MainLayout>
+          </RoleRoute>
+        </PrivateRoute>
+      } />
+      
+      {/* NOUVELLE ROUTE : Mes fiches de paie (pour employés seulement) */}
+      <Route path="/my-payslips" element={
+        <PrivateRoute>
+          {/* Cette route est réservée aux employés */}
+          {user?.role === 'employee' ? (
+            <MainLayout>
+              <EmployeePayroll />
+            </MainLayout>
+          ) : (
+            // Si un admin ou manager essaie d'y accéder, rediriger vers la page admin
+            <Navigate to="/payroll/payslips" replace />
+          )}
+        </PrivateRoute>
+      } />
+      
+      {/* Route pour visualiser une fiche de paie spécifique */}
+      <Route path="/payroll/payslip/:employeeId/:monthYear" element={
+        <PrivateRoute>
+          {/* Les employés peuvent voir leur propre fiche, les admins peuvent voir toutes */}
+          {(user?.role === 'employee') ? (
+            <MainLayout>
+              <PayslipPage />
+            </MainLayout>
+          ) : (
+            <RoleRoute roles={['admin', 'manager']}>
+              <MainLayout>
+                <PayslipPage />
+              </MainLayout>
+            </RoleRoute>
+          )}
+        </PrivateRoute>
+      } />
+      
+      {/* Route pour la liste des fiches de paie (historique) */}
+      <Route path="/payroll/payslips" element={
+        <PrivateRoute>
+          <RoleRoute roles={['admin', 'manager']}>
+            <MainLayout>
+              <PayslipListPage />
+            </MainLayout>
+          </RoleRoute>
+        </PrivateRoute>
+      } />
+      
+      {/* Route admin seulement pour la paie (alternative) */}
+      <Route path="/admin/payroll" element={
+        <PrivateRoute>
+          <RoleRoute roles={['admin']}>
+            <MainLayout>
+              <PayrollPage />
+            </MainLayout>
+          </RoleRoute>
+        </PrivateRoute>
+      } />
+      
+      {/* ============================ FIN DES ROUTES PAIE ============================ */}
+      
+      <Route path="/fullscreen-recognition" element={
+        <PrivateRoute>
+          <NoNavbarLayout>
+            <FullScreenRecognition />
+          </NoNavbarLayout>
+        </PrivateRoute>
+      } />
+      
+      <Route path="/employees/:id/facial-registration" element={
+        <PrivateRoute>
+          <RoleRoute roles={['admin', 'manager']}>
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4">
+              <EmployeeFacialRegistration />
+            </div>
+          </RoleRoute>
+        </PrivateRoute>
+      } />
+      
+      <Route path="/reports" element={
+        <PrivateRoute>
+          <RoleRoute roles={['admin', 'manager']}>
+            <MainLayout>
+              <ReportsPage />
+            </MainLayout>
+          </RoleRoute>
+        </PrivateRoute>
+      } />
+      
+      <Route path="/settings" element={
+        <PrivateRoute>
+          <RoleRoute roles={['admin', 'manager']}>
+            <MainLayout>
+              <SettingsPage />
+            </MainLayout>
+          </RoleRoute>
+        </PrivateRoute>
+      } />
+      
+      <Route path="/profile" element={
+        <PrivateRoute>
+          <MainLayout>
+            <ProfilePage />
+          </MainLayout>
+        </PrivateRoute>
+      } />
+      
+      {/* ============================ NOUVELLE ROUTE : NOTIFICATIONS ============================ */}
+      <Route path="/notifications" element={
+        <PrivateRoute>
+          <MainLayout>
+            <NotificationsPage />
+          </MainLayout>
+        </PrivateRoute>
+      } />
+      {/* ============================ FIN ROUTE NOTIFICATIONS ============================ */}
+      
+      {/* Routes faciales supplémentaires */}
+      {user && ['admin', 'manager'].includes(user.role) && (
+        <Route path="/facial-management" element={
+          <PrivateRoute>
+            <MainLayout>
+              <div className="text-center py-12">
+                <h1 className="text-3xl font-bold text-gray-800 mb-4">
+                  Gestion des Reconnaissances Faciales
+                </h1>
+                <p className="text-gray-600 mb-8">
+                  Cette fonctionnalité sera disponible prochainement
+                </p>
+                <button
+                  onClick={() => window.location.href = '/employees'}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg transition-all shadow-lg hover:shadow-xl"
+                >
+                  Gérer les employés
+                </button>
+              </div>
+            </MainLayout>
+          </PrivateRoute>
+        } />
+      )}
+      
+      {/* Route 404 améliorée */}
+      <Route path="*" element={
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4">
+          <div className="text-center max-w-md">
+            <div className="w-32 h-32 bg-gradient-to-br from-red-600/20 to-red-400/20 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <span className="text-5xl font-bold text-red-400">404</span>
+            </div>
+            <h1 className="text-4xl font-bold text-white mb-4">Page non trouvée</h1>
+            <p className="text-gray-300 mb-4">
+              URL: <code className="bg-gray-800 px-2 py-1 rounded">{window.location.pathname}</code>
+            </p>
+            <p className="text-gray-400 mb-6">
+              Cette route n'existe pas dans l'application.
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => window.location.href = '/login'}
+                className="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg transition-all shadow-lg hover:shadow-xl"
+              >
+                Page de connexion
+              </button>
+              <button
+                onClick={() => window.history.back()}
+                className="w-full py-3 px-6 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 text-white rounded-lg transition-all"
+              >
+                Retour en arrière
+              </button>
+            </div>
+            <div className="mt-8 pt-6 border-t border-gray-700">
+              <p className="text-gray-500 text-sm">
+                Routes disponibles: /login, /dashboard, /employees, /attendance, /attendance/quick-check, /attendance/correction/:employeeId, /facial-attendance, /payroll, /payroll/payslips, /my-payslips, /reports, /settings, /profile, /notifications
+              </p>
+            </div>
+          </div>
+        </div>
+      } />
+    </Routes>
+  );
+};
+
+const App = () => {
+  // État global pour suivre la connexion backend
+  const [backendConnected, setBackendConnected] = useState(true);
+  const [checkingConnection, setCheckingConnection] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    
+    const checkConnection = async () => {
+      if (checkingConnection || !mounted) return;
+      
+      setCheckingConnection(true);
+      
+      try {
+        const isConnected = await api.checkBackendStatus();
+        
+        if (mounted) {
+          setBackendConnected(isConnected);
+          
+          if (isConnected && !backendConnected) {
+            console.log('✅ Connexion backend rétablie');
+          }
+        }
+      } catch (error) {
+        if (mounted) {
+          console.warn('⚠️ Impossible de vérifier la connexion:', error);
+          setBackendConnected(false);
+        }
+      } finally {
+        if (mounted) {
+          setCheckingConnection(false);
+        }
+      }
+    };
+
+    const interval = setInterval(checkConnection, 120000);
+    checkConnection();
+
+    const handleApiStatusChange = (event) => {
+      if (event.detail && event.detail.connected !== undefined) {
+        setBackendConnected(event.detail.connected);
+      }
+    };
+
+    const handleConnectionChange = (event) => {
+      if (event.detail) {
+        setBackendConnected(event.detail.connected);
+      }
+    };
+
+    window.addEventListener('api-status', handleApiStatusChange);
+    window.addEventListener('connection-change', handleConnectionChange);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      window.removeEventListener('api-status', handleApiStatusChange);
+      window.removeEventListener('connection-change', handleConnectionChange);
+      api.stopConnectionWatchdog && api.stopConnectionWatchdog();
+    };
+  }, [backendConnected, checkingConnection]);
+
+  return (
+    <Router>
+      <AuthProvider>
+        {/* Badge de statut global (toujours visible) */}
+        {!backendConnected && (
+          <div className="fixed bottom-4 right-4 z-50">
+            <ConnectionStatusBadge 
+              connected={backendConnected} 
+              checking={checkingConnection} 
+            />
+          </div>
+        )}
+        
+        <AppRoutes />
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#1F2937',
+              color: '#fff',
+              borderRadius: '12px',
+              padding: '16px',
+              border: '1px solid #374151',
+              fontSize: '14px',
+            },
+            success: {
+              duration: 3000,
+              iconTheme: {
+                primary: '#10B981',
+                secondary: '#fff',
+              },
+              style: {
+                background: '#065F46',
+                border: '1px solid #10B981',
+              },
+            },
+            error: {
+              duration: 5000,
+              iconTheme: {
+                primary: '#EF4444',
+                secondary: '#fff',
+              },
+              style: {
+                background: '#7F1D1D',
+                border: '1px solid #EF4444',
+              },
+            },
+          }}
+        />
+      </AuthProvider>
+    </Router>
+  );
+};
+
+export default App;

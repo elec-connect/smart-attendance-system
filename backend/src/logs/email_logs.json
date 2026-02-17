@@ -1,0 +1,555 @@
+[
+  {
+    "timestamp": "2026-01-23T10:21:12.911Z",
+    "to": "iotsahnoun@gmail.com",
+    "subject": "👋 Bienvenue - Vos identifiants Smart Attendance",
+    "success": true,
+    "messageId": "<36d27d3a-503a-7c20-7ff3-37e08ef79778@gmail.com>",
+    "error": null,
+    "env": "production"
+  },
+  {
+    "timestamp": "2026-01-23T10:39:33.089Z",
+    "to": "iotsahnoun@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<dd7d2773-d056-06cb-0298-6aa64192c27f@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-23T20:55:41.446Z",
+    "to": "adem@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<56ae0584-8c86-7f2f-d9b4-f550a8a24e78@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-23T22:21:04.127Z",
+    "to": "iotsahnoun@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<e143ae85-50ac-b189-3074-fd4d617f7530@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-24T12:26:13.308Z",
+    "to": "sahbi@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<827f8d8f-238c-3c7e-6078-2e22b6322a36@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-27T17:40:52.249Z",
+    "to": "fourat@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<071b75d9-89f0-845b-94c2-079dbb5a8480@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-27T17:41:49.979Z",
+    "to": "houda@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<ee35f01e-ca73-9987-04c0-c212fbda0748@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-31T19:58:41.321Z",
+    "to": "iot.sahnoun@gmail.com",
+    "subject": "Réinitialisation de mot de passe",
+    "success": true,
+    "messageId": "<1285897a-6cba-de9a-ef3b-ed2328909147@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-31T20:13:10.413Z",
+    "to": "iot.sahnoun@gmail.com",
+    "subject": "Réinitialisation de mot de passe",
+    "success": true,
+    "messageId": "<ef46b212-0a4f-dd72-d678-18eb0e80db65@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-31T20:31:40.243Z",
+    "to": "iot.sahnoun@gmail.com",
+    "subject": "Réinitialisation de mot de passe",
+    "success": true,
+    "messageId": "<54e90498-925c-6224-2a2b-ac82aa2b372e@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-31T20:39:29.173Z",
+    "to": "iot.sahnoun@gmail.com",
+    "subject": "Réinitialisation de mot de passe",
+    "success": true,
+    "messageId": "<dd24adc1-c99e-877c-502e-e73cccfc1e2e@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-31T20:41:08.152Z",
+    "to": "iot.sahnoun@gmail.com",
+    "subject": "Réinitialisation de mot de passe",
+    "success": true,
+    "messageId": "<d850e0c5-2208-77fb-01c0-b3ad08999400@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-31T20:51:40.366Z",
+    "to": "iot.sahnoun@gmail.com",
+    "subject": "Réinitialisation de mot de passe",
+    "success": true,
+    "messageId": "<3fe5b9b0-8ca9-1983-7dfb-a917313d2348@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-01-31T21:24:44.045Z",
+    "to": "iot.sahnoun@gmail.com",
+    "subject": "Réinitialisation de mot de passe",
+    "success": true,
+    "messageId": "<4c2e1136-71c0-4ca4-1b2b-848a502ad860@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-03T20:13:32.514Z",
+    "to": "haouala18@gmail.com",
+    "subject": "Réinitialisation de mot de passe",
+    "success": true,
+    "messageId": "<032731dd-fbe8-63ee-4382-03215ca6a7c5@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-03T20:20:58.242Z",
+    "to": "iotsahnoun@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<225918fa-10ad-dbd9-1cef-956a38b40dc4@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-04T20:34:33.637Z",
+    "to": "samisami@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<0f01442e-cadc-ad73-be33-5e99037eb20b@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:41:29.051Z",
+    "to": "sahbi@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<2f849af1-7313-203c-0060-632562a1b97c@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:42:32.528Z",
+    "to": "mohamed@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<7f13ae30-010d-569f-0ae5-b3a3b846d968@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:43:38.579Z",
+    "to": "khmais@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<bd1b6840-1a76-1eca-1943-ee58862962f0@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:44:33.771Z",
+    "to": "khaled@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<8959dea2-6c65-7266-d35c-fec0a9c2312e@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:45:40.944Z",
+    "to": "seif@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<8f0cc2f0-dbd5-73b8-813f-4212ad6fe8a8@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:47:30.707Z",
+    "to": "nesma@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<e82fd44c-61b8-79cd-6cd6-0c4d4b00e7b1@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:48:20.075Z",
+    "to": "hikma@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<7fbf2e72-691e-faf2-ec6f-893bddc6352b@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:49:11.681Z",
+    "to": "saleh@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<00aeca38-686f-ffa3-952f-8c35afa95181@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:50:22.133Z",
+    "to": "joud@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<62a77509-bd19-9878-516b-aeef626d93bd@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:51:09.245Z",
+    "to": "mouha@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<48562b0f-c862-d7c6-8033-ff5343b0a3a4@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:51:48.925Z",
+    "to": "sina@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<eea92855-d8d9-0cce-5ee7-bc6bdce6d881@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:52:31.186Z",
+    "to": "left@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<78574872-d218-13f7-4e29-c18360d1748d@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:53:45.177Z",
+    "to": "rigt@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<aeaa0662-04a5-6428-0899-c3e001dbfa81@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:54:32.735Z",
+    "to": "sonia@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<b3b7f416-f997-024a-c95d-c909abfe90c3@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:55:22.778Z",
+    "to": "jira@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<01ea60dd-ec6a-b2e8-e7b7-f9109653fd74@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:56:02.100Z",
+    "to": "olfa@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<a6558b7d-06d0-eb37-c251-17c54e38574f@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:57:25.145Z",
+    "to": "moez@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<7a565367-5727-600b-2019-08685bb55f6f@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T11:58:14.608Z",
+    "to": "houma@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<66bfaaf9-0f97-a1ae-7253-bd39c493689b@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:00:00.486Z",
+    "to": "miss@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<7fdf247f-feb2-38e0-2ee4-59a8584af8d6@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:00:45.952Z",
+    "to": "kia@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<ceea902d-00f1-443c-643b-9d5a2e9546d2@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:01:30.290Z",
+    "to": "hajer@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<b7fc8c83-c276-02c5-9fd0-effd59d96465@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:02:15.654Z",
+    "to": "sta@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<0a8fea6b-97f7-874f-8ac0-752b703df944@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:02:53.858Z",
+    "to": "bob@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<bcbb1675-48d1-92da-211f-541968dd44f6@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:03:35.166Z",
+    "to": "sos@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<16ce2671-cadc-202e-76a3-129c2c32f006@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:04:16.382Z",
+    "to": "vit@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<e722cb33-4d4a-c0fe-f077-66df22945863@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:05:07.125Z",
+    "to": "ded@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<7d225b8d-ec98-de3e-495f-a3d693b8ab29@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:08:15.625Z",
+    "to": "fes@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<68391d9c-784d-da4c-9850-d65a5e4391c5@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:08:59.753Z",
+    "to": "fer@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<04dc32de-68e2-9b16-e59f-8124cd38474e@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:21:00.459Z",
+    "to": "hai@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<4ad1ac90-4fd6-faee-ba03-9be3077a7fb4@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:21:37.561Z",
+    "to": "ja@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<f769bdc0-7261-7d72-617e-b081bbc06030@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:22:22.118Z",
+    "to": "leila@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<b91278f5-f985-ab31-cfe7-8de4c03b97f1@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:23:03.471Z",
+    "to": "kais@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<43a9840d-8314-4591-1b0d-0f91c546b42e@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:24:50.648Z",
+    "to": "hedi@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<4dab5466-52b1-5107-cd96-a972e12815b0@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:26:25.621Z",
+    "to": "gim@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<14bef969-ecaf-1d21-417d-f51a148b498d@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:27:08.072Z",
+    "to": "bab@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<f2d50ee8-da30-8aa7-8dce-b2770f5aa426@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:27:49.891Z",
+    "to": "bib@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<f54a8a9b-945d-ea0c-39f7-8e09c6b05ece@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:28:48.211Z",
+    "to": "cic@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<af6435ab-1a6a-05e0-ec0a-98b6ec234c59@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:29:23.521Z",
+    "to": "lil@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<7c6c9326-ddbf-f58a-e49e-a7ca5b81b323@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:30:03.359Z",
+    "to": "houd@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<4bc21409-8f4d-b0c5-08d7-fba556c510f4@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:30:46.368Z",
+    "to": "cat@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<ef1a147f-216e-e554-6edc-3b8940cdba65@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:31:27.903Z",
+    "to": "kag@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<79c6486e-b744-26bc-27de-bd21298d6b80@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:32:09.923Z",
+    "to": "has@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<f3a19a19-5bd0-bd25-c6f2-0ecdb0cc36b3@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:32:46.105Z",
+    "to": "kou@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<9454e3fd-177a-686e-0188-ad617830a40f@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:33:21.745Z",
+    "to": "loul@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<64c77eb3-c99c-d765-b326-a23a94865e26@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:34:08.512Z",
+    "to": "joujou@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<20b42a80-482d-eb8f-612c-e86a6ddf8978@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:34:50.383Z",
+    "to": "das@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<6ff0e300-4633-28ee-0d4a-ab7088dee7bb@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:35:44.160Z",
+    "to": "aladin@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<c8207e31-7fdc-591c-e8a3-a340c78d4e56@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:36:26.820Z",
+    "to": "lala@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<71871a9b-d32c-229a-ea4c-1a7798dac371@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:37:08.623Z",
+    "to": "mama@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<b2ba36f4-6d59-e1d0-eae8-575f4667f81f@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-09T12:37:47.932Z",
+    "to": "baba@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<f1964090-b88b-2d19-b1e1-137f2aea4f5e@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-11T17:44:10.594Z",
+    "to": "gbh@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<231eeff7-e223-7226-1211-e2e0956144f4@gmail.com>",
+    "error": null
+  },
+  {
+    "timestamp": "2026-02-12T10:10:21.904Z",
+    "to": "sah@gmail.com",
+    "subject": "Bienvenue - Smart Attendance System",
+    "success": true,
+    "messageId": "<16c5a3f1-5a7a-e8e9-2b57-8681ccfab863@gmail.com>",
+    "error": null
+  }
+]
