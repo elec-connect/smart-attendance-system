@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [initialized, setInitialized] = useState(false);
   const navigate = useNavigate();
   
-  // Références pour éviter les appels multiples
+  // Références pour éviter les appels multiples login 
   const initInProgress = useRef(false);
   const tokenCheckTimeout = useRef(null);
 
@@ -281,51 +281,61 @@ export const AuthProvider = ({ children }) => {
   }, [checkTokenLocally, logout]);
 
   const login = async (email, password) => {
-    try {
-      console.log('🔐 Tentative de connexion:', email);
+  try {
+    console.log('🔐 [useAuth] Tentative de connexion avec:', { email, password });
+    console.log('🔐 [useAuth] authService.login est une fonction?', typeof authService.login);
+    
+    // Annuler les vérifications en cours
+    if (tokenCheckTimeout.current) {
+      clearTimeout(tokenCheckTimeout.current);
+      tokenCheckTimeout.current = null;
+    }
+    
+    console.log('📤 [useAuth] Appel de authService.login...');
+    const response = await authService.login(email, password);
+    console.log('📥 [useAuth] Réponse reçue:', response);
+    
+    if (response && response.success && response.token) {
+      console.log('✅ [useAuth] Connexion réussie - Token reçu');
       
-      // Annuler les vérifications en cours
-      if (tokenCheckTimeout.current) {
-        clearTimeout(tokenCheckTimeout.current);
-        tokenCheckTimeout.current = null;
+      // Mettre à jour le token
+      updateToken(response.token);
+      
+      // Stocker l'utilisateur
+      if (response.user) {
+        console.log('👤 [useAuth] Utilisateur reçu:', response.user);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        setUser(response.user);
       }
       
-      const response = await authService.login(email, password);
+      // Réinitialiser le timestamp de vérification
+      localStorage.setItem('lastApiCheck', Date.now().toString());
       
-      if (response.success && response.token) {
-        console.log('✅ Connexion réussie');
-        
-        // Mettre à jour le token
-        updateToken(response.token);
-        
-        // Stocker l'utilisateur
-        if (response.user) {
-          localStorage.setItem('user', JSON.stringify(response.user));
-          setUser(response.user);
-        }
-        
-        // Réinitialiser le timestamp de vérification
-        localStorage.setItem('lastApiCheck', Date.now().toString());
-        
-        // Réinitialiser l'état
-        setInitialized(true);
-        
-        return { success: true, user: response.user };
-      } else {
-        console.log('❌ Connexion échouée:', response.message);
-        return { 
-          success: false, 
-          message: response.message || 'Erreur de connexion' 
-        };
-      }
-    } catch (error) {
-      console.error('🔐 Erreur login:', error);
+      // Réinitialiser l'état
+      setInitialized(true);
+      
+      return { success: true, user: response.user };
+    } else {
+      console.log('❌ [useAuth] Connexion échouée:', response?.message || 'Aucune réponse');
       return { 
         success: false, 
-        message: error.response?.data?.message || 'Erreur de connexion au serveur' 
+        message: response?.message || 'Erreur de connexion' 
       };
     }
-  };
+  } catch (error) {
+    console.error('❌ [useAuth] Erreur login:', error);
+    console.error('📊 [useAuth] Détails erreur:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      config: error.config
+    });
+    return { 
+      success: false, 
+      message: error.response?.data?.message || error.message || 'Erreur de connexion au serveur' 
+    };
+  }
+};
 
   // Fonction pour mettre à jour l'utilisateur
   const updateUser = useCallback((newUserData) => {
