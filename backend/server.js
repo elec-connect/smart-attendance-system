@@ -1,4 +1,4 @@
-// backend/server.js - VERSION CORRIGÉE AVEC ORDRE DES ROUTES OPTIMISÉ
+// backend/server.js - VERSION COMPLÈTE AVEC NOTIFICATIONS
 const path = require('path');
 const exportRoutes = require('./src/routes/exportRoutes');
 const payrollRoutes = require('./src/routes/payrollRoutes');
@@ -341,8 +341,10 @@ app.use('/api/facial', facialRoutes);
 // Routes des paramètres
 app.use('/api/settings', settingsRoutes);
 
-// Route Export
+//  Route Export
 app.use('/api/exports', exportRoutes);
+
+//  Route Export
 app.use('/api/export', exportRoutes);
 
 // Route Notifications 
@@ -351,8 +353,173 @@ app.use('/api/notifications', notificationRoutes);
 // Route profile
 app.use('/api/users', usersRoutes);
 
-// Route Payroll (UNE SEULE FOIS, bien placée)
-app.use('/api/payroll', payrollRoutes);
+// ==================== NOUVELLES ROUTES: NOTIFICATIONS ====================
+
+// Route pour les notifications
+app.get('/api/notifications', authenticateToken, (req, res) => {
+  try {
+    console.log(`📱 Notifications demandées par: ${req.user.email} (${req.user.role})`);
+    
+    // Données de notifications simulées
+    const notifications = [
+      {
+        id: 1,
+        title: 'Smart Attendance',
+        message: 'Bienvenue sur le tableau de bord administrateur',
+        type: 'success',
+        read: false,
+        createdAt: new Date().toISOString(),
+        icon: 'dashboard',
+        priority: 'high'
+      },
+      {
+        id: 2,
+        title: 'Statistiques',
+        message: '5 employés actifs dans le système',
+        type: 'info',
+        read: true,
+        createdAt: new Date(Date.now() - 3600000).toISOString(), // 1 heure
+        icon: 'users',
+        priority: 'medium'
+      },
+      {
+        id: 3,
+        title: 'Pointage facial',
+        message: 'La reconnaissance faciale est activée',
+        type: 'warning',
+        read: false,
+        createdAt: new Date(Date.now() - 7200000).toISOString(), // 2 heures
+        icon: 'camera',
+        priority: 'medium'
+      },
+      {
+        id: 4,
+        title: 'Base de données',
+        message: 'Connexion PostgreSQL établie',
+        type: 'success',
+        read: true,
+        createdAt: new Date(Date.now() - 10800000).toISOString(), // 3 heures
+        icon: 'database',
+        priority: 'low'
+      },
+      {
+        id: 5,
+        title: 'Maintenance',
+        message: 'Le système est à jour',
+        type: 'info',
+        read: false,
+        createdAt: new Date(Date.now() - 14400000).toISOString(), // 4 heures
+        icon: 'settings',
+        priority: 'low'
+      }
+    ];
+    
+    // Filtrer selon le rôle de l'utilisateur
+    let filteredNotifications = [...notifications];
+    
+    if (req.user.role === 'employee') {
+      filteredNotifications = notifications.filter(n => 
+        n.priority !== 'high' && !n.title.includes('Administrateur')
+      );
+    } else if (req.user.role === 'manager') {
+      filteredNotifications = notifications.filter(n => 
+        n.id !== 4 // Cacher "Base de données" aux managers
+      );
+    }
+    
+    res.json({
+      success: true,
+      data: filteredNotifications,
+      count: filteredNotifications.length,
+      unreadCount: filteredNotifications.filter(n => !n.read).length,
+      timestamp: new Date().toISOString(),
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        role: req.user.role,
+        department: req.user.department
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+// Route pour marquer une notification comme lue
+app.put('/api/notifications/:id/read', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    console.log(`📝 Notification marquée comme lue: ${id} par ${req.user.email}`);
+    
+    res.json({
+      success: true,
+      message: 'Notification marquée comme lue',
+      notificationId: parseInt(id),
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur marquer comme lu:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+// Route pour tout marquer comme lu 
+app.put('/api/notifications/read-all', authenticateToken, (req, res) => {
+  try {
+    console.log(`📝 Toutes les notifications marquées comme lues par ${req.user.email}`);
+    
+    res.json({
+      success: true,
+      message: 'Toutes les notifications marquées comme lues',
+      timestamp: new Date().toISOString(),
+      user: {
+        id: req.user.id,
+        email: req.user.email
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur tout marquer comme lu:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
+
+// Route pour compter les non lues
+app.get('/api/notifications/unread-count', authenticateToken, (req, res) => {
+  try {
+    console.log(`🔢 Demande compte notifications non lues: ${req.user.email}`);
+    
+    // Simuler des données
+    res.json({
+      success: true,
+      count: 2, // 2 notifications non lues
+      timestamp: new Date().toISOString(),
+      user: {
+        id: req.user.id,
+        email: req.user.email
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur comptage non lues:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur'
+    });
+  }
+});
 
 // ==================== ROUTES UTILITAIRES ====================
 
@@ -470,176 +637,11 @@ app.get('/api/debug/cors', (req, res) => {
   });
 });
 
-// ==================== ROUTES DE NOTIFICATIONS ====================
+app.use('/api/payroll', payrollRoutes);
 
-// Route pour les notifications
-app.get('/api/notifications', authenticateToken, (req, res) => {
-  try {
-    console.log(`📱 Notifications demandées par: ${req.user.email} (${req.user.role})`);
-    
-    // Données de notifications simulées
-    const notifications = [
-      {
-        id: 1,
-        title: 'Smart Attendance',
-        message: 'Bienvenue sur le tableau de bord administrateur',
-        type: 'success',
-        read: false,
-        createdAt: new Date().toISOString(),
-        icon: 'dashboard',
-        priority: 'high'
-      },
-      {
-        id: 2,
-        title: 'Statistiques',
-        message: '5 employés actifs dans le système',
-        type: 'info',
-        read: true,
-        createdAt: new Date(Date.now() - 3600000).toISOString(),
-        icon: 'users',
-        priority: 'medium'
-      },
-      {
-        id: 3,
-        title: 'Pointage facial',
-        message: 'La reconnaissance faciale est activée',
-        type: 'warning',
-        read: false,
-        createdAt: new Date(Date.now() - 7200000).toISOString(),
-        icon: 'camera',
-        priority: 'medium'
-      },
-      {
-        id: 4,
-        title: 'Base de données',
-        message: 'Connexion PostgreSQL établie',
-        type: 'success',
-        read: true,
-        createdAt: new Date(Date.now() - 10800000).toISOString(),
-        icon: 'database',
-        priority: 'low'
-      },
-      {
-        id: 5,
-        title: 'Maintenance',
-        message: 'Le système est à jour',
-        type: 'info',
-        read: false,
-        createdAt: new Date(Date.now() - 14400000).toISOString(),
-        icon: 'settings',
-        priority: 'low'
-      }
-    ];
-    
-    // Filtrer selon le rôle de l'utilisateur
-    let filteredNotifications = [...notifications];
-    
-    if (req.user.role === 'employee') {
-      filteredNotifications = notifications.filter(n => 
-        n.priority !== 'high' && !n.title.includes('Administrateur')
-      );
-    } else if (req.user.role === 'manager') {
-      filteredNotifications = notifications.filter(n => 
-        n.id !== 4
-      );
-    }
-    
-    res.json({
-      success: true,
-      data: filteredNotifications,
-      count: filteredNotifications.length,
-      unreadCount: filteredNotifications.filter(n => !n.read).length,
-      timestamp: new Date().toISOString(),
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        role: req.user.role,
-        department: req.user.department
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Erreur notifications:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur serveur'
-    });
-  }
-});
+// ==================== GESTION DES ERREURS ====================
 
-// Route pour marquer une notification comme lue
-app.put('/api/notifications/:id/read', authenticateToken, (req, res) => {
-  const { id } = req.params;
-  
-  try {
-    console.log(`📝 Notification marquée comme lue: ${id} par ${req.user.email}`);
-    
-    res.json({
-      success: true,
-      message: 'Notification marquée comme lue',
-      notificationId: parseInt(id),
-      timestamp: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('❌ Erreur marquer comme lu:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur serveur'
-    });
-  }
-});
-
-// Route pour tout marquer comme lu 
-app.put('/api/notifications/read-all', authenticateToken, (req, res) => {
-  try {
-    console.log(`📝 Toutes les notifications marquées comme lues par ${req.user.email}`);
-    
-    res.json({
-      success: true,
-      message: 'Toutes les notifications marquées comme lues',
-      timestamp: new Date().toISOString(),
-      user: {
-        id: req.user.id,
-        email: req.user.email
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Erreur tout marquer comme lu:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur serveur'
-    });
-  }
-});
-
-// Route pour compter les non lues
-app.get('/api/notifications/unread-count', authenticateToken, (req, res) => {
-  try {
-    console.log(`🔢 Demande compte notifications non lues: ${req.user.email}`);
-    
-    res.json({
-      success: true,
-      count: 2,
-      timestamp: new Date().toISOString(),
-      user: {
-        id: req.user.id,
-        email: req.user.email
-      }
-    });
-  } catch (error) {
-    console.error('❌ Erreur comptage non lues:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur serveur'
-    });
-  }
-});
-
-// ==================== GESTION DES ERREURS - À LA FIN ! ====================
-
-// Route 404 pour API - PLACÉ TOUT À LA FIN
+// Route 404 pour API
 app.use('/api/*', (req, res) => {
   console.log(`❌ Route API non trouvée: ${req.originalUrl}`);
   
@@ -659,11 +661,7 @@ app.use('/api/*', (req, res) => {
     '/api/attendance',
     '/api/employees',
     '/api/facial/recognize',
-    '/api/settings',
-    '/api/payroll',
-    '/api/exports',
-    '/api/export',
-    '/api/users'
+    '/api/settings'
   ];
   
   res.status(404).json({
@@ -697,7 +695,7 @@ app.use((err, req, res, next) => {
   next(err);
 });
 
-// Gestionnaire d'erreurs global (tout à la fin)
+// Gestionnaire d'erreurs global
 app.use((err, req, res, next) => {
   console.error('❌ Erreur globale:', err.message);
   console.error('📌 Stack trace:', err.stack);
@@ -716,6 +714,8 @@ app.use((err, req, res, next) => {
   
   res.status(err.status || 500).json(errorResponse);
 });
+
+app.use('/api/payroll', payrollRoutes);
 
 // ==================== DÉMARRAGE DU SERVEUR ====================
 
@@ -759,9 +759,7 @@ async function startServer() {
       console.log('   GET  /api/employees       → Liste des employés');
       console.log('   POST /api/facial/recognize → Reconnaissance faciale');
       console.log('   GET  /api/settings        → Paramètres');
-      console.log('   GET  /api/payroll         → Routes paie');
-      console.log('   GET  /api/exports         → Routes export');
-      console.log('   GET  /api/users           → Routes utilisateurs');
+      console.log('✅ Routes paie chargées: /api/payroll');
       console.log('='.repeat(60));
       
       // Afficher un message de test
