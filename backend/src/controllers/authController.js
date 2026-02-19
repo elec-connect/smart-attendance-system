@@ -190,7 +190,7 @@ class AuthController {
       res.status(500).json(errorResponse);
       console.log('🔐 ========== FIN LOGIN ERREUR ==========\n');
     }
-  },
+  }
 
   // ========== MOT DE PASSE OUBLIÉ ==========
   async forgotPassword(req, res) {
@@ -376,7 +376,7 @@ class AuthController {
         timestamp: new Date().toISOString()
       });
     }
-  },
+  }
 
   // ========== RÉINITIALISER MOT DE PASSE ========== (CORRIGÉ)
   async resetPassword(req, res) {
@@ -494,7 +494,7 @@ class AuthController {
         debug: process.env.NODE_ENV !== 'production' ? { error: error.message } : undefined
       });
     }
-  },
+  }
 
   // ========== VÉRIFICATION DU TOKEN ==========
   async verifyToken(req, res) {
@@ -532,7 +532,7 @@ class AuthController {
         timestamp: new Date().toISOString()
       });
     }
-  },
+  }
 
   // ========== CHANGEMENT DE MOT DE PASSE ==========
   async changePassword(req, res) {
@@ -621,7 +621,7 @@ class AuthController {
         timestamp: new Date().toISOString()
       });
     }
-  },
+  }
 
   // ========== PROFIL UTILISATEUR ==========
   async getProfile(req, res) {
@@ -688,7 +688,7 @@ class AuthController {
         timestamp: new Date().toISOString()
       });
     }
-  },
+  }
 
   // ========== METTRE À JOUR PROFIL ==========
   async updateProfile(req, res) {
@@ -777,7 +777,7 @@ class AuthController {
         timestamp: new Date().toISOString()
       });
     }
-  },
+  }
 
   // ========== DÉCONNEXION ==========
   async logout(req, res) {
@@ -807,7 +807,7 @@ class AuthController {
         timestamp: new Date().toISOString()
       });
     }
-  },
+  }
 
   // ========== LISTE UTILISATEURS (ADMIN) ==========
   async getAllUsers(req, res) {
@@ -868,7 +868,7 @@ class AuthController {
         timestamp: new Date().toISOString()
       });
     }
-  },
+  }
 
   // ========== METTRE À JOUR RÔLE (ADMIN) ==========
   async updateUserRole(req, res) {
@@ -932,7 +932,7 @@ class AuthController {
         timestamp: new Date().toISOString()
       });
     }
-  },
+  }
 
   // ========== ACTUALISER TOKEN ==========
   async refreshToken(req, res) {
@@ -971,7 +971,7 @@ class AuthController {
         timestamp: new Date().toISOString()
       });
     }
-  },
+  }
 
   // ========== STATISTIQUES AUTH ==========
   async getAuthStats(req, res) {
