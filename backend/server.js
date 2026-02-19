@@ -302,38 +302,51 @@ const limiter = rateLimit({
 // Appliquer rate limiting seulement aux routes API
 app.use('/api/', limiter);
 
-// ==================== CORRECTION POUR L'ERREUR "REQUEST SIZE MISMATCH" ====================
-// Parsing JSON avec configuration spéciale pour éviter l'erreur de taille
-app.use(express.json({ 
-  limit: '10mb',
-  verify: (req, res, buf, encoding) => {
-    // Stocker le body brut pour référence
-    req.rawBody = buf.toString();
-  }
-}));
+// ==================== CORRECTION ULTIME POUR L'ERREUR "REQUEST SIZE MISMATCH" ====================
+// On désactive complètement les parsers natifs d'Express et on parse nous-mêmes
 
-// Middleware pour capturer et ignorer les erreurs de taille
-app.use((err, req, res, next) => {
-  if (err.type === 'entity.too.large' || 
-      err.message?.includes('request size') ||
-      err.message?.includes('content length')) {
-    console.warn('⚠️ Erreur de taille de requête ignorée, traitement continue...');
-    
-    // Si on a le rawBody, on peut essayer de le parser
-    if (req.rawBody) {
-      try {
-        req.body = JSON.parse(req.rawBody);
-        console.log('✅ Body parsé manuellement avec succès');
-        return next();
-      } catch (parseError) {
-        console.error('❌ Impossible de parser le body même manuellement');
-      }
-    }
+// Middleware pour capturer et parser le body manuellement
+app.use((req, res, next) => {
+  // Ignorer les requêtes GET qui n'ont pas de body
+  if (req.method === 'GET') {
+    return next();
   }
-  next(err);
+  
+  console.log(`📦 Capture manuelle du body pour ${req.method} ${req.path}`);
+  
+  let data = '';
+  req.on('data', chunk => {
+    data += chunk.toString();
+  });
+  
+  req.on('end', () => {
+    if (data) {
+      try {
+        // Essayer de parser comme JSON
+        req.body = JSON.parse(data);
+        console.log('✅ Body parsé manuellement avec succès');
+        console.log('📦 Données reçues:', req.body);
+      } catch (e) {
+        // Si ce n'est pas du JSON, garder la chaîne brute
+        console.log('⚠️ Body non-JSON, gardé comme chaîne');
+        req.body = { raw: data };
+      }
+    } else {
+      req.body = {};
+    }
+    next();
+  });
+  
+  req.on('error', (err) => {
+    console.error('❌ Erreur lors de la réception du body:', err);
+    next(err);
+  });
 });
 
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// On n'utilise PAS express.json() ni express.urlencoded()
+// Ces lignes sont commentées pour éviter les interférences
+// app.use(express.json({ limit: '10mb' }));
+// app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // ==================== FIN DE LA CORRECTION ====================
 
 // Logging middleware amélioré
@@ -377,7 +390,6 @@ app.use((req, res, next) => {
   
   next();
 });
-
 // ==================== ROUTES STATIQUES ====================
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/temp_images', express.static(path.join(__dirname, 'temp_images')));
