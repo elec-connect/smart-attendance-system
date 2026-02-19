@@ -1,4 +1,4 @@
-// backend/server.js - VERSION COMPLÈTE AVEC DEBUG DES REQUÊTES
+// backend/server.js - VERSION COMPLÈTE AVEC ORDRE CORRECT DES MIDDLEWARES
 const path = require('path');
 const exportRoutes = require('./src/routes/exportRoutes');
 const payrollRoutes = require('./src/routes/payrollRoutes');
@@ -223,8 +223,50 @@ app.use(cors(corsOptions));
 // Gérer les pré-vols OPTIONS
 app.options('*', cors(corsOptions));
 
-// ==================== MIDDLEWARE DE DEBUG (AJOUTÉ ICI) ====================
-// CE MIDDLEWARE CAPTURE TOUTES LES REQUÊTES AVANT TOUT TRAITEMENT
+// ==================== MIDDLEWARE DE PARSING MANUEL - PLACÉ ICI (CRUCIAL) ====================
+// Ce middleware doit être EXÉCUTÉ AVANT tout autre traitement
+app.use((req, res, next) => {
+  // Ignorer les requêtes GET qui n'ont pas de body
+  if (req.method === 'GET') {
+    return next();
+  }
+  
+  console.log(`📦 Capture manuelle du body pour ${req.method} ${req.path}`);
+  
+  let data = '';
+  req.on('data', chunk => {
+    data += chunk.toString();
+  });
+  
+  req.on('end', () => {
+    if (data) {
+      try {
+        // PARSER LE JSON ET LE METTRE DANS req.body
+        req.body = JSON.parse(data);
+        console.log('✅ Body parsé et transmis avec succès');
+        console.log('📦 Données dans req.body:', req.body);
+      } catch (e) {
+        // Si ce n'est pas du JSON, garder la chaîne brute
+        console.log('⚠️ Body non-JSON, gardé comme chaîne');
+        req.body = { raw: data };
+      }
+    } else {
+      req.body = {};
+    }
+    next();
+  });
+  
+  req.on('error', (err) => {
+    console.error('❌ Erreur lors de la réception du body:', err);
+    next(err);
+  });
+});
+
+// On n'utilise PAS express.json() ni express.urlencoded() pour éviter les conflits
+// app.use(express.json({ limit: '10mb' }));
+// app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ==================== MIDDLEWARE DE DEBUG (MAINTENANT APRÈS LE PARSING) ====================
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   
@@ -234,35 +276,20 @@ app.use((req, res, next) => {
   console.log(`📌 Méthode: ${req.method}`);
   console.log(`📌 URL complète: ${req.protocol}://${req.get('host')}${req.originalUrl}`);
   console.log(`📌 Chemin: ${req.path}`);
-  console.log(`📌 IP: ${req.ip}`);
+  console.log(`📌 IP: ${req.ip || req.connection.remoteAddress}`);
   
   console.log('\n📋 HEADERS:');
-  console.log(`   User-Agent: ${req.headers['user-agent']}`);
+  console.log(`   User-Agent: ${req.headers['user-agent'] || 'non spécifié'}`);
   console.log(`   Origin: ${req.headers.origin || '❌ AUCUN'}`);
   console.log(`   Referer: ${req.headers.referer || '❌ AUCUN'}`);
-  console.log(`   Accept: ${req.headers.accept}`);
-  console.log(`   Content-Type: ${req.headers['content-type']}`);
+  console.log(`   Accept: ${req.headers.accept || 'non spécifié'}`);
+  console.log(`   Content-Type: ${req.headers['content-type'] || 'non spécifié'}`);
   console.log(`   Authorization: ${req.headers.authorization ? '✅ Présent' : '❌ Absent'}`);
   
-  // Si c'est une requête POST, capturer le body
-  if (req.method === 'POST' || req.method === 'PUT') {
-    let body = '';
-    req.on('data', chunk => {
-      body += chunk.toString();
-    });
-    req.on('end', () => {
-      if (body) {
-        console.log(`\n📦 BODY REÇU (${body.length} caractères):`);
-        try {
-          // Essayer de parser pour afficher joliment
-          const parsedBody = JSON.parse(body);
-          console.log(JSON.stringify(parsedBody, null, 2));
-        } catch (e) {
-          // Si ce n'est pas du JSON, afficher brut
-          console.log(body);
-        }
-      }
-    });
+  // Afficher le body si présent (maintenant disponible grâce au middleware précédent)
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`\n📦 BODY REÇU (${JSON.stringify(req.body).length} caractères):`);
+    console.log(JSON.stringify(req.body, null, 2));
   }
   
   // Intercepter spécifiquement les requêtes vers /auth/login
@@ -301,53 +328,6 @@ const limiter = rateLimit({
 
 // Appliquer rate limiting seulement aux routes API
 app.use('/api/', limiter);
-
-// ==================== CORRECTION ULTIME POUR L'ERREUR "REQUEST SIZE MISMATCH" ====================
-// On désactive complètement les parsers natifs d'Express et on parse nous-mêmes
-
-// Middleware pour capturer et parser le body manuellement
-app.use((req, res, next) => {
-  // Ignorer les requêtes GET qui n'ont pas de body
-  if (req.method === 'GET') {
-    return next();
-  }
-  
-  console.log(`📦 Capture manuelle du body pour ${req.method} ${req.path}`);
-  
-  let data = '';
-  req.on('data', chunk => {
-    data += chunk.toString();
-  });
-  
-  req.on('end', () => {
-    if (data) {
-      try {
-        // Essayer de parser comme JSON
-        req.body = JSON.parse(data);
-        console.log('✅ Body parsé manuellement avec succès');
-        console.log('📦 Données reçues:', req.body);
-      } catch (e) {
-        // Si ce n'est pas du JSON, garder la chaîne brute
-        console.log('⚠️ Body non-JSON, gardé comme chaîne');
-        req.body = { raw: data };
-      }
-    } else {
-      req.body = {};
-    }
-    next();
-  });
-  
-  req.on('error', (err) => {
-    console.error('❌ Erreur lors de la réception du body:', err);
-    next(err);
-  });
-});
-
-// On n'utilise PAS express.json() ni express.urlencoded()
-// Ces lignes sont commentées pour éviter les interférences
-// app.use(express.json({ limit: '10mb' }));
-// app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-// ==================== FIN DE LA CORRECTION ====================
 
 // Logging middleware amélioré
 app.use((req, res, next) => {
@@ -390,6 +370,7 @@ app.use((req, res, next) => {
   
   next();
 });
+
 // ==================== ROUTES STATIQUES ====================
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/temp_images', express.static(path.join(__dirname, 'temp_images')));
@@ -904,8 +885,8 @@ async function startServer() {
       console.log('   GET  /api/users           → Routes utilisateurs');
       console.log('='.repeat(60));
       
-      console.log('\n🔧 MIDDLEWARE DE DEBUG ACTIF - Toutes les requêtes sont loggées');
-      console.log('\n✅ CORRECTION APPLIQUÉE: Les erreurs "request size mismatch" sont maintenant ignorées');
+      console.log('\n🔧 MIDDLEWARE DE PARSING ACTIF - Body parsé manuellement');
+      console.log('✅ CORRECTION APPLIQUÉE: Parsing manuel avant tout traitement');
     });
     
   } catch (error) {
