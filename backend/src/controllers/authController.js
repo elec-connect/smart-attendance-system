@@ -26,39 +26,46 @@ class AuthController {
   console.log('\n🔐 ========== DÉBUT LOGIN API ==========');
   console.log(`⏱️  ${new Date().toISOString()}`);
   console.log(`📡 Request ID: ${req.requestId || 'N/A'}`);
-  
-  // 🔍 LOGS DE DÉBUG CRITIQUES
-  console.log('🔍 INSPECTION DE req.body:');
-  console.log('   req.body existe ?', req ? 'req OK' : 'req undefined');
-  console.log('   req.body type:', typeof req.body);
-  console.log('   req.body valeur:', req.body);
-  console.log('   req.body est un objet ?', req.body && typeof req.body === 'object');
-  console.log('   req.body a email ?', req.body && 'email' in req.body);
-  console.log('   req.body a password ?', req.body && 'password' in req.body);
-  
+
+  // ---- NOUVEAU : Logs de diagnostic ultra-détaillés ----
+  console.log('🔍 [DIAGNOSTIC] État de la requête au début de login:');
+  console.log('   - req existe ?', !!req);
+  console.log('   - req.body existe ?', !!req.body);
+  console.log('   - Type de req.body:', typeof req.body);
+  console.log('   - Contenu de req.body:', req.body);
+  console.log('   - req.body est un objet ?', req.body && typeof req.body === 'object');
+  console.log('   - Clés de req.body:', req.body ? Object.keys(req.body) : 'N/A');
+
+  // ---- SÉCURISATION : Si req.body est undefined, on sort immédiatement ----
+  if (!req.body) {
+    console.error('❌ [DIAGNOSTIC] req.body est UNDEFINED !');
+    return res.status(400).json({
+      success: false,
+      message: 'Erreur interne : corps de la requête manquant.',
+    });
+  }
+
+  // ---- Extraction sécurisée ----
+  let email, password;
   try {
-    // Sécuriser l'accès à req.body
-    if (!req.body) {
-      console.log('❌ req.body est undefined !');
-      return res.status(400).json({
-        success: false,
-        message: 'Corps de requête manquant',
-        timestamp: new Date().toISOString()
-      });
-    }
-    
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
-      console.log('❌ Données manquantes - email ou password absent');
-      console.log('   email:', email);
-      console.log('   password:', password ? 'présent' : 'absent');
-      return res.status(400).json({
-        success: false,
-        message: 'Email et mot de passe requis',
-        timestamp: new Date().toISOString()
-      });
-    }
+    email = req.body.email;
+    password = req.body.password;
+  } catch (e) {
+    console.error('❌ [DIAGNOSTIC] Erreur lors de l\'extraction des données:', e.message);
+    return res.status(500).json({ success: false, message: 'Erreur de traitement des données' });
+  }
+
+  console.log(`📧 Email extrait: ${email}`);
+  console.log(`🔑 Password présent: ${!!password}`);
+
+  // ---- Vérification des données ----
+  if (!email || !password) {
+    console.log('❌ Données manquantes');
+    return res.status(400).json({
+      success: false,
+      message: 'Email et mot de passe requis',
+    });
+  }
       
       console.log(`📧 Tentative de connexion: ${email}`);
       
