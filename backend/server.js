@@ -162,7 +162,6 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // backend/server.js - VERSION COMPLÈTE AVEC ROUTE DE DIAGNOSTIC
-const path = require('path');
 const exportRoutes = require('./src/routes/exportRoutes');
 const payrollRoutes = require('./src/routes/payrollRoutes');
 const notificationRoutes = require('./src/routes/notificationRoutes');
