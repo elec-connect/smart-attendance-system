@@ -217,25 +217,25 @@ router.get('/ping', (req, res) => {
 // ROUTE 404
 // ============================================
 
-router.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Route auth non trouvée: ${req.originalUrl}`,
-    availableRoutes: [
-      '/login',
-      '/forgot-password',
-      '/reset-password (sans :token)',
-      '/verify-reset-token/:token',
-      '/password',
-      '/verify',
-      '/profile',
-      '/logout',
-      '/users',
-      '/users/:id/role',
-      '/test',
-      '/ping'
-    ]
-  });
-});
+//router.use('*', (req, res) => {
+  //res.status(404).json({
+    //success: false,
+    //message: `Route auth non trouvée: ${req.originalUrl}`,
+    //availableRoutes: [
+      //'/login',
+      //'/forgot-password',
+      //'/reset-password (sans :token)',
+      //'/verify-reset-token/:token',
+      //'/password',
+      //'/verify',
+      //'/profile',
+      //'/logout',
+      //'/users',
+      //'/users/:id/role',
+      //'/test',
+      //'/ping'
+    //]
+  //});
+//});
 
 module.exports = router;
