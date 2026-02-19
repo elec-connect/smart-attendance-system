@@ -23,49 +23,21 @@ class AuthController {
 
   // ========== CONNEXION ==========
   async login(req, res) {
-  console.log('\n🔐 ========== DÉBUT LOGIN API ==========');
-  console.log(`⏱️  ${new Date().toISOString()}`);
-  console.log(`📡 Request ID: ${req.requestId || 'N/A'}`);
-
-  // ---- NOUVEAU : Logs de diagnostic ultra-détaillés ----
-  console.log('🔍 [DIAGNOSTIC] État de la requête au début de login:');
-  console.log('   - req existe ?', !!req);
-  console.log('   - req.body existe ?', !!req.body);
-  console.log('   - Type de req.body:', typeof req.body);
-  console.log('   - Contenu de req.body:', req.body);
-  console.log('   - req.body est un objet ?', req.body && typeof req.body === 'object');
-  console.log('   - Clés de req.body:', req.body ? Object.keys(req.body) : 'N/A');
-
-  // ---- SÉCURISATION : Si req.body est undefined, on sort immédiatement ----
-  if (!req.body) {
-    console.error('❌ [DIAGNOSTIC] req.body est UNDEFINED !');
-    return res.status(400).json({
-      success: false,
-      message: 'Erreur interne : corps de la requête manquant.',
-    });
-  }
-
-  // ---- Extraction sécurisée ----
-  let email, password;
-  try {
-    email = req.body.email;
-    password = req.body.password;
-  } catch (e) {
-    console.error('❌ [DIAGNOSTIC] Erreur lors de l\'extraction des données:', e.message);
-    return res.status(500).json({ success: false, message: 'Erreur de traitement des données' });
-  }
-
-  console.log(`📧 Email extrait: ${email}`);
-  console.log(`🔑 Password présent: ${!!password}`);
-
-  // ---- Vérification des données ----
-  if (!email || !password) {
-    console.log('❌ Données manquantes');
-    return res.status(400).json({
-      success: false,
-      message: 'Email et mot de passe requis',
-    });
-  }
+    console.log('\n🔐 ========== DÉBUT LOGIN API ==========');
+    console.log(`⏱️  ${new Date().toISOString()}`);
+    console.log(`📡 Request ID: ${req.requestId || 'N/A'}`);
+    
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        console.log('❌ Données manquantes');
+        return res.status(400).json({
+          success: false,
+          message: 'Email et mot de passe requis',
+          timestamp: new Date().toISOString()
+        });
+      }
       
       console.log(`📧 Tentative de connexion: ${email}`);
       
