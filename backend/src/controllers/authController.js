@@ -190,7 +190,7 @@ class AuthController {
       res.status(500).json(errorResponse);
       console.log('🔐 ========== FIN LOGIN ERREUR ==========\n');
     }
-  }
+  },
 
   // ========== MOT DE PASSE OUBLIÉ ==========
   async forgotPassword(req, res) {
