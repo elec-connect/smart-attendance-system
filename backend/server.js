@@ -223,9 +223,8 @@ app.use(cors(corsOptions));
 // Gérer les pré-vols OPTIONS
 app.options('*', cors(corsOptions));
 
-// ==================== COMMENTEZ LE MIDDLEWARE DE PARSING MANUEL ====================
-// Ce middleware est désactivé pour tester avec express.json()
-/*
+// ==================== MIDDLEWARE DE PARSING MANUEL - PLACÉ ICI (CRUCIAL) ====================
+// Ce middleware doit être EXÉCUTÉ AVANT tout autre traitement
 app.use((req, res, next) => {
   // Ignorer les requêtes GET qui n'ont pas de body
   if (req.method === 'GET') {
@@ -262,14 +261,12 @@ app.use((req, res, next) => {
     next(err);
   });
 });
-*/
 
-// ==================== RÉACTIVER EXPRESS.JSON ====================
-// On utilise le parser natif d'Express
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// On n'utilise PAS express.json() ni express.urlencoded() pour éviter les conflits
+// app.use(express.json({ limit: '10mb' }));
+// app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ==================== MIDDLEWARE DE DEBUG (APRÈS LE PARSING) ====================
+// ==================== MIDDLEWARE DE DEBUG (MAINTENANT APRÈS LE PARSING) ====================
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   
@@ -289,7 +286,7 @@ app.use((req, res, next) => {
   console.log(`   Content-Type: ${req.headers['content-type'] || 'non spécifié'}`);
   console.log(`   Authorization: ${req.headers.authorization ? '✅ Présent' : '❌ Absent'}`);
   
-  // Afficher le body si présent
+  // Afficher le body si présent (maintenant disponible grâce au middleware précédent)
   if (req.body && Object.keys(req.body).length > 0) {
     console.log(`\n📦 BODY REÇU (${JSON.stringify(req.body).length} caractères):`);
     console.log(JSON.stringify(req.body, null, 2));
