@@ -23,21 +23,42 @@ class AuthController {
 
   // ========== CONNEXION ==========
   async login(req, res) {
-    console.log('\n🔐 ========== DÉBUT LOGIN API ==========');
-    console.log(`⏱️  ${new Date().toISOString()}`);
-    console.log(`📡 Request ID: ${req.requestId || 'N/A'}`);
+  console.log('\n🔐 ========== DÉBUT LOGIN API ==========');
+  console.log(`⏱️  ${new Date().toISOString()}`);
+  console.log(`📡 Request ID: ${req.requestId || 'N/A'}`);
+  
+  // 🔍 LOGS DE DÉBUG CRITIQUES
+  console.log('🔍 INSPECTION DE req.body:');
+  console.log('   req.body existe ?', req ? 'req OK' : 'req undefined');
+  console.log('   req.body type:', typeof req.body);
+  console.log('   req.body valeur:', req.body);
+  console.log('   req.body est un objet ?', req.body && typeof req.body === 'object');
+  console.log('   req.body a email ?', req.body && 'email' in req.body);
+  console.log('   req.body a password ?', req.body && 'password' in req.body);
+  
+  try {
+    // Sécuriser l'accès à req.body
+    if (!req.body) {
+      console.log('❌ req.body est undefined !');
+      return res.status(400).json({
+        success: false,
+        message: 'Corps de requête manquant',
+        timestamp: new Date().toISOString()
+      });
+    }
     
-    try {
-      const { email, password } = req.body;
-      
-      if (!email || !password) {
-        console.log('❌ Données manquantes');
-        return res.status(400).json({
-          success: false,
-          message: 'Email et mot de passe requis',
-          timestamp: new Date().toISOString()
-        });
-      }
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      console.log('❌ Données manquantes - email ou password absent');
+      console.log('   email:', email);
+      console.log('   password:', password ? 'présent' : 'absent');
+      return res.status(400).json({
+        success: false,
+        message: 'Email et mot de passe requis',
+        timestamp: new Date().toISOString()
+      });
+    }
       
       console.log(`📧 Tentative de connexion: ${email}`);
       
