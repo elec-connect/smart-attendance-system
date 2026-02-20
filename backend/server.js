@@ -639,8 +639,9 @@ async function startServer() {
       console.error('❌ Erreur connexion base de données:', dbError.message);
     }
     
-    app.listen(PORT, () => {
-      console.log(`📡 Serveur démarré sur: http://localhost:${PORT}`);
+    // MODIFICATION ICI - Écoute sur 0.0.0.0 au lieu de l'interface par défaut
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`📡 Serveur démarré sur: http://localhost:${PORT} (et toutes les interfaces)`);
       console.log(`🌍 Frontend: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
       console.log(`🔧 Environnement: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🗄️  Base de données: PostgreSQL`);
@@ -676,7 +677,6 @@ async function startServer() {
     process.exit(1);
   }
 }
-
 process.on('SIGINT', () => {
   console.log('\n🔻 Arrêt du serveur...');
   process.exit(0);
