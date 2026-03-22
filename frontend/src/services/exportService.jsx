@@ -1,20 +1,4 @@
-/**
- * ✅ SERVICE D'EXPORT CORRIGÉ - ADMIN VOIT TOUS LES EMPLOYÉS
- * ✅ CORRECTION: employee_id (snake_case) pour PostgreSQL
- * ✅ CORRECTION: Pas de filtre automatique sur l'utilisateur connecté
- * 
- * Problème résolu : 
- * - Bouton Excel → appelait /pdf
- * - Bouton PDF → appelait /excel
- * - Paramètre employeeId → backend attend employee_id
- * - Admin voyait seulement ses propres données
- * 
- * Correction : 
- * - Excel → /excel
- * - PDF → /pdf
- * - employee_id → snake_case
- * - Pas de filtrage automatique (c'est le backend qui gère les permissions)
- */
+
 
 export class ExportService {
   // ============================================
@@ -380,6 +364,7 @@ export class ExportService {
     console.log('[EXPORT] Fiche individuelle:', params);
     return this.downloadFile(endpoint, params, filename);
   }
+
 
   // ============================================
   // ✅ EXPORT TOUTES LES FICHES DE PAIE - ADMIN

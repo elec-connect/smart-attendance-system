@@ -2,29 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import api from '../services/api';
+import { ExportService } from '../services/exportService';
+import { useAuth } from '../hooks/useAuth';
 import { 
   FaSearch, 
   FaSync, 
-  FaFileExport, 
+  FaFilePdf,
+  FaSpinner,
   FaUser, 
   FaEnvelope,
   FaUserClock,
   FaSignInAlt,
   FaSignOutAlt,
-  FaCalendarAlt  // AJOUTÉ
+  FaCalendarAlt
 } from 'react-icons/fa';
 
 const AttendancePage = () => {
   const navigate = useNavigate();
+  const { user, isAdmin, isManager, isEmployee } = useAuth();
   
   const [attendance, setAttendance] = useState([]);
   const [filteredAttendance, setFilteredAttendance] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exportLoading, setExportLoading] = useState(false);
   const [error, setError] = useState(null);
   
-  // États pour les filtres
+  // États pour les filtres handleExportPDF 
   const [dateRange, setDateRange] = useState({
     start: new Date(new Date().setDate(new Date().getDate() - 30)),
     end: new Date()
@@ -227,38 +233,74 @@ const AttendancePage = () => {
     fetchAttendanceData();
   };
 
-  const handleExport = () => {
-    const csvContent = [
-      ['Date', 'Nom', 'ID Employé', 'Email', 'Téléphone', 'Statut', 'Check-in', 'Check-out', 'Notes'],
-      ...filteredAttendance.map(record => {
-        const employeeId = record.employeeId || record.employee_id;
-        const employeeName = getEmployeeName(employeeId);
-        const employeeDisplayId = getEmployeeDisplayId(employeeId);
-        const employeeEmail = getEmployeeEmail(employeeId);
-        const employeePhone = getEmployeePhone(employeeId);
-        
-        return [
-          format(new Date(record.date || record.createdAt), 'dd/MM/yyyy', { locale: fr }),
-          employeeName,
-          employeeDisplayId,
-          employeeEmail,
-          employeePhone,
-          getStatusLabel(record.status),
-          record.checkIn || 'N/A',
-          record.checkOut || 'N/A',
-          record.notes || ''
-        ];
-      })
-    ].map(row => row.join(',')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `presences_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
+  // ✅ NOUVELLE FONCTION D'EXPORT PDF (adaptée au rôle)
+const handleExportPDF = async () => {
+  try {
+    setExportLoading(true);
+    
+    // Paramètres de base (période)
+    const params = {
+      startDate: dateRange.start.toISOString().split('T')[0],
+      endDate: dateRange.end.toISOString().split('T')[0]
+    };
+    
+    // 👇 LOGIQUE SELON LE RÔLE
+    if (isAdmin()) {
+      // ADMIN : pas de filtre → tous les employés
+      console.log('📤 Admin - Export PDF de TOUS les pointages');
+      // Pas de employee_id, pas de department → tous les employés
+      
+    } else if (isManager()) {
+      // MANAGER : vérifier qu'il a un département
+      if (!user?.department) {
+        toast.error('Vous n\'êtes pas associé à un département');
+        setExportLoading(false);
+        return;
+      }
+      
+      console.log(`📤 Manager - Export PDF du département ${user.department}`);
+      params.department = user.department;  // ← FILTRE PAR DÉPARTEMENT
+      
+    } else if (isEmployee()) {
+      // EMPLOYÉ : vérifier qu'il a un identifiant
+      const employeeId = user?.employee_id || user?.email;
+      
+      if (!employeeId) {
+        toast.error('Identifiant employé non trouvé');
+        setExportLoading(false);
+        return;
+      }
+      
+      console.log(`📤 Employé - Export PDF de ses pointages`);
+      params.employee_id = employeeId;
+    }
+    
+    console.log('📤 Export PDF des pointages:', params);
+    
+    // Appeler le service d'export PDF
+    await ExportService.exportAttendancePDF(params);
+    
+    toast.success('✅ Export PDF des pointages réussi');
+    
+  } catch (error) {
+    console.error('❌ Erreur export PDF:', error);
+    
+    // Gestion des erreurs spécifiques
+    if (error.status === 403) {
+      toast.error('Vous n\'avez pas les droits pour exporter ces données');
+    } else if (error.status === 404) {
+      toast.info('Aucun pointage trouvé pour cette période');
+    } else if (error.name === 'NetworkError') {
+      toast.error('Erreur de connexion au serveur');
+    } else if (error.message?.includes('department')) {
+      toast.error('Erreur lors du filtrage par département');
+    } else {
+      toast.error(error.message || 'Erreur lors de l\'export PDF');
+    }
+  } finally {
+    setExportLoading(false);
+  }
+};
 
   const getStatusLabel = (status) => {
     if (!status) return 'Non spécifié';
@@ -292,7 +334,7 @@ const AttendancePage = () => {
     return colors[status.toLowerCase()] || 'bg-gray-100 text-gray-800';
   };
 
-  // Fonction pour gérer le pointage rapide
+  // Fonction pour gérer le pointage rapide (admin uniquement)
   const handleQuickCheck = (action) => {
     navigate(`/attendance/manual?type=${action}`);
   };
@@ -327,39 +369,40 @@ const AttendancePage = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Gestion des Présences</h1>
         
-        {/* SECTION BOUTONS */}
-        <div className="flex space-x-3">
-          {/* Bouton Pointage Manuel Principal */}
-          <button
-            onClick={() => navigate('/attendance/manual')}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 flex items-center transition-all duration-200 shadow-md hover:shadow-lg"
-            title="Accéder au pointage manuel"
-          >
-            <FaUserClock className="w-5 h-5 mr-2" />
-            Pointage Manuel
-          </button>
-          
-          {/* Bouton Arrivée Rapide */}
-          <button
-            onClick={() => handleQuickCheck('checkin')}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center transition-all duration-200"
-            title="Pointer une arrivée rapide"
-          >
-            <FaSignInAlt className="w-5 h-5 mr-2" />
-            Arrivée
-          </button>
-          
-          {/* Bouton Départ Rapide */}
-          <button
-            onClick={() => handleQuickCheck('checkout')}
-            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center transition-all duration-200"
-            title="Pointer un départ rapide"
-          >
-            <FaSignOutAlt className="w-5 h-5 mr-2" />
-            Départ
-          </button>
-          
-          {/* Boutons existants */}
+        {/* SECTION BOUTONS - UNIQUEMENT POUR ADMIN */}
+        {isAdmin() && (
+          <div className="flex space-x-3">
+            <button
+              onClick={() => navigate('/attendance/manual')}
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 flex items-center transition-all duration-200 shadow-md hover:shadow-lg"
+              title="Accéder au pointage manuel"
+            >
+              <FaUserClock className="w-5 h-5 mr-2" />
+              Pointage Manuel
+            </button>
+            
+            <button
+              onClick={() => handleQuickCheck('checkin')}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center transition-all duration-200"
+              title="Pointer une arrivée rapide"
+            >
+              <FaSignInAlt className="w-5 h-5 mr-2" />
+              Arrivée
+            </button>
+            
+            <button
+              onClick={() => handleQuickCheck('checkout')}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center transition-all duration-200"
+              title="Pointer un départ rapide"
+            >
+              <FaSignOutAlt className="w-5 h-5 mr-2" />
+              Départ
+            </button>
+          </div>
+        )}
+
+        {/* BOUTONS COMMUNS À TOUS (Actualiser et Export PDF) */}
+        <div className="flex space-x-2">
           <button
             onClick={handleRefresh}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center transition-colors duration-200"
@@ -369,93 +412,100 @@ const AttendancePage = () => {
           </button>
           
           <button
-            onClick={handleExport}
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center transition-colors duration-200"
+            onClick={handleExportPDF}
+            disabled={exportLoading}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 flex items-center transition-colors duration-200 disabled:opacity-50"
           >
-            <FaFileExport className="w-5 h-5 mr-2" />
-            Exporter CSV
+            {exportLoading ? (
+              <FaSpinner className="w-5 h-5 mr-2 animate-spin" />
+            ) : (
+              <FaFilePdf className="w-5 h-5 mr-2" />
+            )}
+            Exporter PDF
           </button>
         </div>
       </div>
 
-      {/* Section Pointage Rapide - OPTIONNEL */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-            <FaUserClock className="w-5 h-5 mr-2 text-purple-600" />
-            Pointage Manuel Rapide
-          </h3>
-          <span className="text-sm text-gray-500 bg-white px-3 py-1 rounded-full">
-            Administrateur uniquement
-          </span>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Carte Pointage Complet */}
-          <div 
-            onClick={() => navigate('/attendance/manual')}
-            className="bg-white p-4 rounded-lg border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer group"
-          >
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mr-3 group-hover:bg-purple-200 transition-colors">
-                <FaUserClock className="w-6 h-6 text-purple-600" />
+      {/* Section Pointage Rapide - UNIQUEMENT POUR ADMIN */}
+      {isAdmin() && (
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+              <FaUserClock className="w-5 h-5 mr-2 text-purple-600" />
+              Pointage Manuel Rapide
+            </h3>
+            <span className="text-sm text-gray-500 bg-white px-3 py-1 rounded-full">
+              Administrateur uniquement
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Carte Pointage Complet */}
+            <div 
+              onClick={() => navigate('/attendance/manual')}
+              className="bg-white p-4 rounded-lg border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all cursor-pointer group"
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mr-3 group-hover:bg-purple-200 transition-colors">
+                  <FaUserClock className="w-6 h-6 text-purple-600" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">Pointage Complet</h4>
+                  <p className="text-sm text-gray-500">Interface complète de pointage</p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-medium text-gray-900">Pointage Complet</h4>
-                <p className="text-sm text-gray-500">Interface complète de pointage</p>
+              <div className="mt-3 text-xs text-purple-600 font-medium">
+                Sélectionner un employé pour pointer
               </div>
             </div>
-            <div className="mt-3 text-xs text-purple-600 font-medium">
-              Sélectionner un employé pour pointer
+            
+            {/* Carte Arrivée Rapide */}
+            <div 
+              onClick={() => handleQuickCheck('checkin')}
+              className="bg-white p-4 rounded-lg border border-gray-200 hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer group"
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mr-3 group-hover:bg-emerald-200 transition-colors">
+                  <FaSignInAlt className="w-6 h-6 text-emerald-600" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">Arrivée Rapide</h4>
+                  <p className="text-sm text-gray-500">Pointer l'arrivée uniquement</p>
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-emerald-600 font-medium">
+                Pour les employés arrivant tardivement
+              </div>
+            </div>
+            
+            {/* Carte Départ Rapide */}
+            <div 
+              onClick={() => handleQuickCheck('checkout')}
+              className="bg-white p-4 rounded-lg border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer group"
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mr-3 group-hover:bg-orange-200 transition-colors">
+                  <FaSignOutAlt className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">Départ Rapide</h4>
+                  <p className="text-sm text-gray-500">Pointer le départ uniquement</p>
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-orange-600 font-medium">
+                Pour les oublis de pointage de départ
+              </div>
             </div>
           </div>
           
-          {/* Carte Arrivée Rapide */}
-          <div 
-            onClick={() => handleQuickCheck('checkin')}
-            className="bg-white p-4 rounded-lg border border-gray-200 hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer group"
-          >
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mr-3 group-hover:bg-emerald-200 transition-colors">
-                <FaSignInAlt className="w-6 h-6 text-emerald-600" />
-              </div>
-              <div>
-                <h4 className="font-medium text-gray-900">Arrivée Rapide</h4>
-                <p className="text-sm text-gray-500">Pointer l'arrivée uniquement</p>
-              </div>
+          <div className="mt-4 text-sm text-gray-600 flex items-center">
+            <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+              <span className="text-xs text-blue-600">!</span>
             </div>
-            <div className="mt-3 text-xs text-emerald-600 font-medium">
-              Pour les employés arrivant tardivement
-            </div>
-          </div>
-          
-          {/* Carte Départ Rapide */}
-          <div 
-            onClick={() => handleQuickCheck('checkout')}
-            className="bg-white p-4 rounded-lg border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer group"
-          >
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mr-3 group-hover:bg-orange-200 transition-colors">
-                <FaSignOutAlt className="w-6 h-6 text-orange-600" />
-              </div>
-              <div>
-                <h4 className="font-medium text-gray-900">Départ Rapide</h4>
-                <p className="text-sm text-gray-500">Pointer le départ uniquement</p>
-              </div>
-            </div>
-            <div className="mt-3 text-xs text-orange-600 font-medium">
-              Pour les oublis de pointage de départ
-            </div>
+            <p>Les pointages manuels sont réservés aux administrateurs pour corriger les erreurs ou compléter les oublis</p>
           </div>
         </div>
-        
-        <div className="mt-4 text-sm text-gray-600 flex items-center">
-          <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center mr-2">
-            <span className="text-xs text-blue-600">!</span>
-          </div>
-          <p>Les pointages manuels sont réservés aux administrateurs pour corriger les erreurs ou compléter les oublis</p>
-        </div>
-      </div>
+      )}
 
       {/* Filtres */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -596,15 +646,18 @@ const AttendancePage = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Notes
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                {/* ✅ COLONNE ACTIONS - UNIQUEMENT POUR ADMIN */}
+                {isAdmin() && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredAttendance.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={isAdmin() ? 9 : 8} className="px-6 py-12 text-center text-gray-500">
                     Aucune donnée de présence trouvée pour les filtres sélectionnés
                   </td>
                 </tr>
@@ -669,19 +722,21 @@ const AttendancePage = () => {
                       <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={record.notes || ''}>
                         {record.notes || ''}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-  <div className="flex space-x-2">
-    {/* SEULEMENT le bouton Corriger */}
-    <button
-      onClick={() => navigate(`/attendance/correction/${employeeId}`)}
-      className="text-xs px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded transition-colors flex items-center"
-      title="Corriger les pointages du mois"
-    >
-      <FaCalendarAlt className="w-3 h-3 mr-2" />
-      Corriger
-    </button>
-  </div>
-</td>
+                      {/* ✅ BOUTON CORRIGER - UNIQUEMENT POUR ADMIN */}
+                      {isAdmin() && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => navigate(`/attendance/correction/${employeeId}`)}
+                              className="text-xs px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded transition-colors flex items-center"
+                              title="Corriger les pointages du mois"
+                            >
+                              <FaCalendarAlt className="w-3 h-3 mr-2" />
+                              Corriger
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -698,27 +753,29 @@ const AttendancePage = () => {
         )}
       </div>
 
-      {/* Section d'aide */}
-      <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
-          <FaUserClock className="w-5 h-5 mr-2 text-blue-600" />
-          Comment utiliser le pointage manuel ?
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-          <div>
-            <p className="font-medium mb-1">1. Pointage Complet</p>
-            <p>Utilisez le bouton "Pointage Manuel" pour accéder à l'interface complète avec recherche d'employés.</p>
-          </div>
-          <div>
-            <p className="font-medium mb-1">2. Arrivée/Départ Rapide</p>
-            <p>Utilisez les boutons "Arrivée" ou "Départ" pour pointer rapidement sans passer par la recherche.</p>
-          </div>
-          <div>
-            <p className="font-medium mb-1">3. Correction Mensuelle</p>
-            <p>Utilisez le bouton "Corriger" pour ajuster tous les pointages d'un employé pour un mois donné.</p>
+      {/* Section d'aide - UNIQUEMENT POUR ADMIN */}
+      {isAdmin() && (
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+            <FaUserClock className="w-5 h-5 mr-2 text-blue-600" />
+            Comment utiliser le pointage manuel ?
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+            <div>
+              <p className="font-medium mb-1">1. Pointage Complet</p>
+              <p>Utilisez le bouton "Pointage Manuel" pour accéder à l'interface complète avec recherche d'employés.</p>
+            </div>
+            <div>
+              <p className="font-medium mb-1">2. Arrivée/Départ Rapide</p>
+              <p>Utilisez les boutons "Arrivée" ou "Départ" pour pointer rapidement sans passer par la recherche.</p>
+            </div>
+            <div>
+              <p className="font-medium mb-1">3. Correction Mensuelle</p>
+              <p>Utilisez le bouton "Corriger" pour ajuster tous les pointages d'un employé pour un mois donné.</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

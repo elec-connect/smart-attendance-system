@@ -25,15 +25,7 @@ import { ExportService } from '../../services/exportService';
 import { employeeService } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 
-/**
- * ✅ PANEL D'EXPORT CORRIGÉ - ADMIN VOIT TOUS LES EMPLOYÉS
- * ✅ CORRECTION: employee_id (snake_case) pour PostgreSQL
- * ✅ CORRECTION: Admin sans filtre employé → TOUS les employés
- * 
- * ADMIN:        Téléchargement TOUT + ses propres fiches
- * MANAGER:      Téléchargement SES propres fiches + département
- * EMPLOYÉ:      Téléchargement SES propres fiches uniquement
- */
+
 
 const ExportPanel = () => {
   // ===== AUTH =====                                                           
@@ -51,8 +43,8 @@ const ExportPanel = () => {
     startDate: '',
     endDate: '',
     department: '',
-    employeeId: '',      // Pour l'UI (camelCase)
-    employee_id: '',     // Pour le backend (snake_case)
+    employeeId: '', 
+    employee_id: '',  
     monthYear: '2026-10'
   });
   
@@ -66,43 +58,40 @@ const ExportPanel = () => {
   const [batchInfo, setBatchInfo] = useState(null);
 
   // ============================================
-  // ✅ MÉMOÏSATION DES DONNÉES CALCULÉES
+  // ✅ IDENTIFICATION PAR EMAIL (PAS BESOIN DE employee_id)
   // ============================================
   
-  const userEmployeeId = useMemo(() => {
-    if (user?.employee_id) return user.employee_id;
-    if (user?.employee_code) return user.employee_code;
-    if (user?.email) return user.email;
-    if (user?.id) return user.id;
-    return null;
+  const userEmail = useMemo(() => {
+    return user?.email || null;
   }, [user]);
 
-  const userEmployeeName = useMemo(() => {
+  const userCIN = useMemo(() => {
+    // Chercher le CIN dans la liste des employés
+    if (userEmail && employees.length > 0) {
+      const foundEmployee = employees.find(emp => emp.email === userEmail);
+      return foundEmployee?.cin || null;
+    }
+    return null;
+  }, [userEmail, employees]);
+
+  const userIdentifier = useMemo(() => {
+    // PRIORITÉ 1: Email (toujours disponible et unique)
+    if (userEmail) return userEmail;
+    
+    // PRIORITÉ 2: CIN (si trouvé)
+    if (userCIN) return userCIN;
+    
+    // FALLBACK: Autres identifiants
+    return user?.employee_id || user?.email || user?.id || null;
+  }, [userEmail, userCIN, user]);
+
+  const userDisplayName = useMemo(() => {
     if (user?.first_name && user?.last_name) {
       return `${user.first_name} ${user.last_name}`;
     }
     if (user?.name) return user.name;
-    if (user?.email) return user.email.split('@')[0];
-    return 'Vous';
-  }, [user]);
-
-  // ============================================
-  // ✅ UTILS - RÉCUPÉRATION ID EMPLOYÉ
-  // ============================================
-  
-  const getEmployeeFullName = useCallback((emp) => {
-    if (!emp) return 'N/A';
-    const firstName = emp.firstName || emp.first_name || '';
-    const lastName = emp.lastName || emp.last_name || '';
-    const name = emp.name || '';
-    if (name) return name;
-    if (firstName || lastName) return `${firstName} ${lastName}`.trim();
-    return emp.employee_id || 'Employé inconnu';
-  }, []);
-
-  const getEmployeeId = useCallback((emp) => {
-    return emp.employee_id || emp.id || 'N/A';
-  }, []);
+    return userEmail || 'Vous';
+  }, [user, userEmail]);
 
   // ============================================
   // ✅ FILTRAGE DES EMPLOYÉS SELON LE RÔLE
@@ -111,24 +100,25 @@ const ExportPanel = () => {
   const filteredEmployees = useMemo(() => {
     if (isAdmin()) return employees;
     return employees.filter(emp => 
-      emp.employee_id === userEmployeeId || 
-      emp.id === userEmployeeId ||
-      emp.email === user?.email
+      emp.email === userEmail || 
+      emp.cin === userCIN ||
+      emp.employee_id === userIdentifier
     );
-  }, [employees, userEmployeeId, user?.email, isAdmin]);
+  }, [employees, userEmail, userCIN, userIdentifier, isAdmin]);
 
   // ============================================
   // ✅ VALIDATION DES PERMISSIONS
   // ============================================
   
-  const validateExportPermission = useCallback((type, targetEmployeeId = null) => {
+  const validateExportPermission = useCallback((type, targetIdentifier = null) => {
     if (isAdmin()) return { allowed: true, message: null };
     
     if (isManager()) {
       if (type === 'department') {
         return { allowed: true, message: 'Export du département' };
       }
-      if (targetEmployeeId && targetEmployeeId !== userEmployeeId) {
+      // Vérification par email
+      if (targetIdentifier && targetIdentifier !== userEmail) {
         return { 
           allowed: false, 
           message: 'Vous ne pouvez exporter que vos propres données' 
@@ -137,7 +127,7 @@ const ExportPanel = () => {
     }
     
     if (isEmployee()) {
-      if (targetEmployeeId && targetEmployeeId !== userEmployeeId) {
+      if (targetIdentifier && targetIdentifier !== userEmail) {
         return { 
           allowed: false, 
           message: 'Vous ne pouvez exporter que vos propres données' 
@@ -146,12 +136,12 @@ const ExportPanel = () => {
     }
     
     return { allowed: true, message: null };
-  }, [isAdmin, isManager, isEmployee, userEmployeeId]);
+  }, [isAdmin, isManager, isEmployee, userEmail]);
 
   // ============================================
   // ✅ CHARGEMENT INITIAL
   // ============================================
-  
+
   useEffect(() => {
     fetchEmployeesAndDepartments();
     fetchAvailableMonths();
@@ -161,27 +151,35 @@ const ExportPanel = () => {
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     
-    setFilters(prev => ({
-      ...prev,
+    // Initialisation des dates
+    const baseFilters = {
       startDate: firstDay.toISOString().split('T')[0],
-      endDate: lastDay.toISOString().split('T')[0]
-    }));
+      endDate: lastDay.toISOString().split('T')[0],
+      employeeId: '',
+      employee_id: '',
+      department: ''
+    };
     
-    if (!isAdmin()) {
-      if (userEmployeeId) {
-        setFilters(prev => ({ 
-          ...prev, 
-          employeeId: userEmployeeId,
-          employee_id: userEmployeeId
-        }));
-      }
+    // ✅ CAS ADMIN : tout vide
+    if (isAdmin()) {
+      setFilters(baseFilters);
     }
-    
-    if (isManager() && user?.department) {
-      setFilters(prev => ({ 
-        ...prev, 
-        department: user.department 
-      }));
+    // ✅ CAS MANAGER : avec son département et son email
+    else if (isManager() && userEmail) {
+      setFilters({
+        ...baseFilters,
+        employeeId: userEmail,
+        employee_id: userEmail,
+        department: user?.department || ''
+      });
+    }
+    // ✅ CAS EMPLOYÉ : seulement son email
+    else if (userEmail) {
+      setFilters({
+        ...baseFilters,
+        employeeId: userEmail,
+        employee_id: userEmail
+      });
     }
   }, []);
 
@@ -224,6 +222,17 @@ const ExportPanel = () => {
             .map(emp => emp.department)
         )].sort();
         setDepartments(uniqueDepts);
+      }
+
+      // ✅ Log pour déboguer
+      if (userEmail) {
+        const foundEmployee = employeesData.find(emp => emp.email === userEmail);
+        console.log('🔍 Employé trouvé:', foundEmployee);
+        if (foundEmployee) {
+          console.log('   Email:', foundEmployee.email);
+          console.log('   CIN:', foundEmployee.cin);
+          console.log('   employee_id:', foundEmployee.employee_id);
+        }
       }
     } catch (error) {
       toast.error('Erreur lors du chargement des données');
@@ -297,7 +306,7 @@ const ExportPanel = () => {
         if (isAdmin() && activeTab === 'all') {
           permissionCheck = validateExportPermission('all');
         } else {
-          permissionCheck = validateExportPermission('individual', userEmployeeId);
+          permissionCheck = validateExportPermission('individual', userEmail);
         }
       }
       
@@ -305,7 +314,7 @@ const ExportPanel = () => {
         if (isAdmin() && activeTab === 'all') {
           permissionCheck = validateExportPermission('all');
         } else {
-          permissionCheck = validateExportPermission('individual', userEmployeeId);
+          permissionCheck = validateExportPermission('individual', userEmail);
         }
       }
       
@@ -333,16 +342,22 @@ const ExportPanel = () => {
           }
         }
         else {
-          const employeeId = userEmployeeId;
+          // ✅ UTILISATION DE L'EMAIL COMME IDENTIFIANT PRINCIPAL
+          const identifier = userEmail;
           
-          if (!employeeId) {
-            toast.error('Impossible de déterminer votre identifiant employé');
+          if (!identifier) {
+            toast.error('Impossible de déterminer votre identifiant');
             setExportLoading(false);
             return;
           }
           
+          console.log(`[EXPORT] Fiche individuelle:`, {
+            employee_id: identifier,  // On envoie l'email
+            month_year: filters.monthYear
+          });
+          
           await ExportService.exportSinglePayslipPDF({
-            employee_id: employeeId,
+            employee_id: identifier,
             month_year: filters.monthYear
           });
           
@@ -353,7 +368,6 @@ const ExportPanel = () => {
       else if (exportType === 'attendance') {
         // ✅ ADMIN - TOUTES LES DONNÉES
         if (isAdmin() && activeTab === 'all') {
-          // Utiliser les paramètres personnalisés s'ils existent, sinon construire
           let params = customParams;
           
           if (!params) {
@@ -362,7 +376,7 @@ const ExportPanel = () => {
               endDate: filters.endDate,
               department: filters.department || undefined
             };
-            // ✅ SEULEMENT si un employé spécifique est sélectionné
+            // SEULEMENT si un employé spécifique est sélectionné
             if (filters.employee_id) {
               params.employee_id = filters.employee_id;
             }
@@ -377,12 +391,12 @@ const ExportPanel = () => {
             toast.success('✅ Export PDF des pointages terminé');
           }
         }
-        // ✅ NON-ADMIN - DONNÉES PERSONNELLES
+        // ✅ NON-ADMIN - DONNÉES PERSONNELLES (par EMAIL)
         else {
-          const employeeId = userEmployeeId;
+          const identifier = userEmail;
           
-          if (!employeeId) {
-            toast.error('Impossible de déterminer votre identifiant employé');
+          if (!identifier) {
+            toast.error('Impossible de déterminer votre identifiant');
             setExportLoading(false);
             return;
           }
@@ -391,7 +405,7 @@ const ExportPanel = () => {
             await ExportService.exportAttendanceExcel({
               startDate: filters.startDate,
               endDate: filters.endDate,
-              employee_id: employeeId
+              employee_id: identifier  // On envoie l'email
             });
             toast.success('✅ Vos pointages ont été exportés (Excel)');
           } 
@@ -399,7 +413,7 @@ const ExportPanel = () => {
             await ExportService.exportAttendancePDF({
               startDate: filters.startDate,
               endDate: filters.endDate,
-              employee_id: employeeId
+              employee_id: identifier  // On envoie l'email
             });
             toast.success('✅ Vos pointages ont été exportés (PDF)');
           }
@@ -445,7 +459,7 @@ const ExportPanel = () => {
     } finally {
       setExportLoading(false);
     }
-  }, [exportType, format, activeTab, filters, user, isAdmin, userEmployeeId, validateExportPermission]);
+  }, [exportType, format, activeTab, filters, user, isAdmin, userEmail, validateExportPermission]);
 
   // ============================================
   // ✅ GESTIONNAIRES SPÉCIALISÉS PAR TYPE
@@ -528,12 +542,12 @@ const ExportPanel = () => {
       startDate: '',
       endDate: '',
       department: isManager() ? user?.department : '',
-      employeeId: !isAdmin() ? userEmployeeId : '',
-      employee_id: !isAdmin() ? userEmployeeId : '',
+      employeeId: !isAdmin() ? userEmail : '',
+      employee_id: !isAdmin() ? userEmail : '',
       monthYear: availableMonths.length > 0 ? availableMonths[0].month_year : '2026-10'
     });
     toast.success('Filtres réinitialisés');
-  }, [isManager, isAdmin, user?.department, userEmployeeId, availableMonths]);
+  }, [isManager, isAdmin, user?.department, userEmail, availableMonths]);
 
   // ============================================
   // ✅ RENDU PRINCIPAL
@@ -542,47 +556,114 @@ const ExportPanel = () => {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
       
-      {/* ===== EN-TÊTE AVEC RÔLE ===== */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            {isAdmin() && <FaUserCog className="mr-3 text-purple-600 text-2xl" />}
-            {isManager() && <FaUserTie className="mr-3 text-blue-600 text-2xl" />}
-            {isEmployee() && <FaUser className="mr-3 text-green-600 text-2xl" />}
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                {isAdmin() && 'Administration des exports'}
-                {isManager() && `Gestion des exports - ${user?.department || 'Département'}`}
-                {isEmployee() && 'Mes exports personnels'}
-              </h2>
-              <p className="text-gray-600 mt-1">
-                {isAdmin() && 'Exportez toutes les données ou vos fiches personnelles'}
-                {isManager() && 'Consultez et exportez les données de votre département'}
-                {isEmployee() && 'Téléchargez vos fiches de paie et vos pointages'}
-              </p>
-              {isManager() && user?.department && (
-                <div className="mt-2 inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                  <FaBuilding className="mr-2" />
-                  Département: {user.department}
-                </div>
+      {/* ===== EN-TÊTE AVEC RÔLE - STYLE PROFESSIONNEL ===== */}
+      <div className="mb-8">
+        {/* Bannière de rôle */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-t-xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                {isAdmin() && <FaUserCog className="text-3xl" />}
+                {isManager() && <FaUserTie className="text-3xl" />}
+                {isEmployee() && <FaUser className="text-3xl" />}
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">Centre d'Exportation</h1>
+                <p className="text-blue-100 mt-1">Exportez vos données au format Excel, PDF ou ZIP</p>
+              </div>
+            </div>
+            
+            {/* Badge de statut */}
+            <div className={`flex items-center px-4 py-2 rounded-lg backdrop-blur-sm ${
+              connectionStatus.connected ? 'bg-green-500/30 text-white' : 'bg-red-500/30 text-white'
+            }`}>
+              {connectionStatus.testing ? (
+                <><FaSpinner className="animate-spin mr-2" /> Vérification...</>
+              ) : connectionStatus.connected ? (
+                <><FaCheckCircle className="mr-2" /> Service connecté</>
+              ) : (
+                <><FaExclamationTriangle className="mr-2" /> Service indisponible</>
               )}
             </div>
           </div>
-          
-          <div className={`flex items-center px-3 py-1 rounded-full text-sm ${
-            connectionStatus.connected 
-              ? 'bg-green-100 text-green-800' 
-              : 'bg-red-100 text-red-800'
-          }`}>
-            {connectionStatus.testing ? (
-              <><FaSpinner className="animate-spin mr-2" /> Vérification...</>
-            ) : connectionStatus.connected ? (
-              <><FaCheckCircle className="mr-2" /> Service disponible</>
-            ) : (
-              <><FaExclamationTriangle className="mr-2" /> Service indisponible</>
-            )}
-          </div>
         </div>
+
+        {/* Cartes de rôles */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+          {/* Admin Card */}
+          {isAdmin() && (
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-5 rounded-xl border border-purple-200 shadow-sm">
+              <div className="flex items-center mb-3">
+                <div className="bg-purple-600 p-2 rounded-lg mr-3">
+                  <FaUserCog className="text-white text-lg" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Administration</h3>
+                  <p className="text-sm text-gray-600">Accès complet à toutes les données</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Département:</span>
+                <span className="font-semibold text-purple-700 bg-purple-100 px-3 py-1 rounded-full">
+                  {user?.department || 'Direction'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Manager Card */}
+          {isManager() && (
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-200 shadow-sm">
+              <div className="flex items-center mb-3">
+                <div className="bg-blue-600 p-2 rounded-lg mr-3">
+                  <FaUserTie className="text-white text-lg" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Gestion départementale</h3>
+                  <p className="text-sm text-gray-600">Accès aux données de votre département</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Département:</span>
+                <span className="font-semibold text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
+                  {user?.department || 'Non spécifié'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Employee Card */}
+          {isEmployee() && (
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-200 shadow-sm">
+              <div className="flex items-center mb-3">
+                <div className="bg-green-600 p-2 rounded-lg mr-3">
+                  <FaUser className="text-white text-lg" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Espace personnel</h3>
+                  <p className="text-sm text-gray-600">Accès à vos données uniquement</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Identification:</span>
+                <span className="font-semibold text-green-700 bg-green-100 px-3 py-1 rounded-full">
+                  {userEmail}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Indicateur de département pour admin (quand dans l'onglet "Toutes les données") */}
+        {isAdmin() && activeTab === 'all' && (
+          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center">
+            <FaInfoCircle className="text-amber-600 mr-2 flex-shrink-0" />
+            <p className="text-sm text-amber-800">
+              <span className="font-medium">Mode "Toutes les données" :</span> Vous pouvez exporter l'ensemble des données de l'entreprise. 
+              Utilisez les filtres ci-dessous pour affiner votre sélection.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ===== ADMIN - ONGLETS PERSONNEL / TOUT LE MONDE ===== */}
@@ -625,11 +706,20 @@ const ExportPanel = () => {
               <div>
                 <h3 className="font-semibold text-blue-900">Vos exports personnels</h3>
                 <p className="text-sm text-blue-800 mt-1">
-                  Vous êtes connecté en tant que <span className="font-bold">{userEmployeeName}</span>
-                  {userEmployeeId && <span className="ml-1 text-xs bg-blue-200 px-2 py-0.5 rounded-full">ID: {userEmployeeId}</span>}
+                  Vous êtes connecté en tant que <span className="font-bold">{userDisplayName}</span>
                 </p>
-                <p className="text-xs text-blue-700 mt-1">
-                  Vous ne pouvez exporter que vos propres données.
+                <div className="flex items-center mt-1 text-xs text-blue-700">
+                  <span className="bg-blue-200 px-2 py-0.5 rounded-full mr-2">
+                    Email: {userEmail}
+                  </span>
+                  {userCIN && (
+                    <span className="bg-blue-200 px-2 py-0.5 rounded-full">
+                      CIN: {userCIN}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-blue-700 mt-2">
+                  ✅ Vos exports sont identifiés par votre <span className="font-bold">email</span> (et votre CIN si disponible)
                 </p>
               </div>
             </div>
@@ -657,7 +747,7 @@ const ExportPanel = () => {
                 <span className="font-medium">Fiche de paie</span>
                 <span className="text-xs text-gray-500 mt-1">PDF - Format officiel</span>
                 <span className="text-xs font-medium mt-2 px-2 py-0.5 bg-green-100 text-green-800 rounded-full">
-                  Votre fiche uniquement
+                  Identifié par email
                 </span>
               </button>
               
@@ -677,7 +767,7 @@ const ExportPanel = () => {
                 <span className="font-medium">Mes pointages</span>
                 <span className="text-xs text-gray-500 mt-1">Excel ou PDF</span>
                 <span className="text-xs font-medium mt-2 px-2 py-0.5 bg-green-100 text-green-800 rounded-full">
-                  Vos présences uniquement
+                  Identifié par email
                 </span>
               </button>
             </div>
@@ -709,8 +799,11 @@ const ExportPanel = () => {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Format: YYYY-MM (ex: 2026-10)
+                </div>
+
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-sm text-blue-800">
+                    <span className="font-bold">Identification par email:</span> {userEmail}
                   </p>
                 </div>
 
@@ -782,6 +875,12 @@ const ExportPanel = () => {
                 </div>
               </div>
 
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 mb-3">
+                <p className="text-sm text-blue-800">
+                  <span className="font-bold">Identification par email:</span> {userEmail}
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <button
                   type="button"
@@ -809,18 +908,6 @@ const ExportPanel = () => {
                   )}
                 </button>
               </div>
-              
-              {filters.startDate && filters.endDate && (
-                <div className="mt-3 p-2 bg-white rounded-lg border border-gray-200">
-                  <p className="text-sm text-gray-700 flex items-center">
-                    <FaCalendarAlt className="mr-2 text-green-600" />
-                    <span className="font-medium">Période sélectionnée:</span>
-                    <span className="ml-2">
-                      {new Date(filters.startDate).toLocaleDateString('fr-FR')} - {new Date(filters.endDate).toLocaleDateString('fr-FR')}
-                    </span>
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -1064,8 +1151,8 @@ const ExportPanel = () => {
                   >
                     <option value="">Tous les employés</option>
                     {employees.slice(0, 50).map((emp, index) => (
-                      <option key={index} value={getEmployeeId(emp)}>
-                        {getEmployeeFullName(emp)} ({getEmployeeId(emp)})
+                      <option key={index} value={emp.employee_id || emp.email}>
+                        {emp.first_name} {emp.last_name} - {emp.cin || ''}
                       </option>
                     ))}
                   </select>
@@ -1177,32 +1264,106 @@ const ExportPanel = () => {
         <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
           <div className="flex items-center mb-3">
             <FaBuilding className="h-5 w-5 text-blue-600 mr-2" />
-            <h3 className="font-semibold text-blue-800">Export du département</h3>
+            <h3 className="font-semibold text-blue-800">Export du département {user?.department}</h3>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* BOUTON EXCEL */}
             <button
               type="button"
-              onClick={() => {
-                setExportType('attendance');
-                setFormat('excel');
-                toast.info('Fonctionnalité en cours de développement');
+              onClick={async () => {
+                try {
+                  setExportLoading(true);
+                  
+                  // Période par défaut : mois en cours
+                  const today = new Date();
+                  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                  
+                  const startDate = firstDay.toISOString().split('T')[0];
+                  const endDate = lastDay.toISOString().split('T')[0];
+                  
+                  console.log(`📤 Export EXCEL pointages du département ${user?.department} du ${startDate} au ${endDate}`);
+                  
+                  await ExportService.exportAttendanceExcel({
+                    startDate: startDate,
+                    endDate: endDate,
+                    department: user?.department
+                  });
+                  
+                  toast.success(`✅ Export EXCEL des pointages du département ${user?.department} réussi`);
+                  
+                } catch (error) {
+                  console.error('❌ Erreur export département (Excel):', error);
+                  
+                  if (error.status === 404) {
+                    toast.info(`Aucun pointage trouvé pour ${user?.department} sur cette période`);
+                  } else if (error.name === 'NetworkError') {
+                    toast.error('Erreur de connexion au serveur');
+                  } else {
+                    toast.error(`Erreur: ${error.message || 'Export échoué'}`);
+                  }
+                } finally {
+                  setExportLoading(false);
+                }
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2"
+              disabled={exportLoading}
+              className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <FaFileExcel /> Pointages du département
+              {exportLoading ? (
+                <><FaSpinner className="animate-spin" /> Export Excel en cours...</>
+              ) : (
+                <><FaFileExcel /> Excel - Pointages {user?.department}</>
+              )}
             </button>
-            
+
+            {/* BOUTON PDF */}
             <button
               type="button"
-              onClick={() => {
-                setExportType('payslip');
-                setFormat('pdf');
-                toast.info('Fonctionnalité en cours de développement');
+              onClick={async () => {
+                try {
+                  setExportLoading(true);
+                  
+                  // Période par défaut : mois en cours
+                  const today = new Date();
+                  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                  
+                  const startDate = firstDay.toISOString().split('T')[0];
+                  const endDate = lastDay.toISOString().split('T')[0];
+                  
+                  console.log(`📤 Export PDF pointages du département ${user?.department} du ${startDate} au ${endDate}`);
+                  
+                  await ExportService.exportAttendancePDF({
+                    startDate: startDate,
+                    endDate: endDate,
+                    department: user?.department
+                  });
+                  
+                  toast.success(`✅ Export PDF des pointages du département ${user?.department} réussi`);
+                  
+                } catch (error) {
+                  console.error('❌ Erreur export département (PDF):', error);
+                  
+                  if (error.status === 404) {
+                    toast.info(`Aucun pointage trouvé pour ${user?.department} sur cette période`);
+                  } else if (error.name === 'NetworkError') {
+                    toast.error('Erreur de connexion au serveur');
+                  } else {
+                    toast.error(`Erreur: ${error.message || 'Export échoué'}`);
+                  }
+                } finally {
+                  setExportLoading(false);
+                }
               }}
-              className="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2"
+              disabled={exportLoading}
+              className="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <FaFilePdf /> Fiches du département
+              {exportLoading ? (
+                <><FaSpinner className="animate-spin" /> Export PDF en cours...</>
+              ) : (
+                <><FaFilePdf /> PDF - Pointages {user?.department}</>
+              )}
             </button>
           </div>
           
@@ -1228,22 +1389,14 @@ const ExportPanel = () => {
             <span className="mr-1">•</span>
             <span>Le fichier sera téléchargé automatiquement une fois généré</span>
           </li>
-          {isAdmin() && (
+          <li className="flex items-start">
+            <span className="mr-1">•</span>
+            <span className="font-medium">Identification:</span> Vos exports sont liés à votre email <span className="font-mono bg-blue-100 px-1 rounded">{userEmail}</span>
+          </li>
+          {userCIN && (
             <li className="flex items-start">
               <span className="mr-1">•</span>
-              <span className="font-medium">Admin:</span> ✅ Vous voyez TOUS les employés (sauf filtre spécifique)
-            </li>
-          )}
-          {isManager() && (
-            <li className="flex items-start">
-              <span className="mr-1">•</span>
-              <span className="font-medium">Manager:</span> Vos exports sont limités à votre département
-            </li>
-          )}
-          {isEmployee() && (
-            <li className="flex items-start">
-              <span className="mr-1">•</span>
-              <span className="font-medium">Employé:</span> Vous ne pouvez exporter que vos propres données
+              <span className="font-medium">CIN détecté:</span> {userCIN} (utilisé comme fallback)
             </li>
           )}
         </ul>

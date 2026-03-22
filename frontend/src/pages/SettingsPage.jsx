@@ -18,13 +18,16 @@ import {
   FaCheckCircle,
   FaTimesCircle,
   FaLifeRing,
-  FaSync
+  FaSync,
+  FaMoon,
+  FaSun,
+  FaCloudMoon
 } from 'react-icons/fa';
 
 const SettingsPage = () => {
   console.log('🎯 SettingsPage chargée');
   
-  // État initial avec structure garantie
+  // État initial avec structure améliorée pour les shifts Note   loadSettings
   const [settings, setSettings] = useState({
     company: {
       name: '',
@@ -33,20 +36,52 @@ const SettingsPage = () => {
       phone: ''
     },
     attendance: {
-      workStartTime: '08:00',
-      workEndTime: '17:00',
-      lateThreshold: '09:15',
-      halfDayThreshold: '12:00',
-      workDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
-      breakDuration: 60,
+      workDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
       overtimeEnabled: false,
-      overtimeThreshold: 8
+      overtimeThreshold: 8,
+      globalBreakDuration: 60 // Pause par défaut
     },
     shifts: {
-      shift1: { name: 'Shift Standard', start: '08:00', end: '17:00' },
-      shift2: { name: 'Shift Matin', start: '06:00', end: '14:00' },
-      shift3: { name: 'Shift Après-midi', start: '14:00', end: '22:00' },
-      shift4: { name: 'Shift Nuit', start: '22:00', end: '06:00' }
+      shift1: { 
+        name: 'Shift Standard', 
+        start: '08:00', 
+        end: '17:00',
+        lateThreshold: '08:14',
+        halfDayThreshold: '12:00',
+        breakDuration: 60,
+        enabled: true,
+        color: 'blue'
+      },
+      shift2: { 
+        name: 'Shift Matin', 
+        start: '06:00', 
+        end: '14:00',
+        lateThreshold: '06:14',
+        halfDayThreshold: '10:00',
+        breakDuration: 45,
+        enabled: true,
+        color: 'green'
+      },
+      shift3: { 
+        name: 'Shift Après-midi', 
+        start: '14:00', 
+        end: '22:00',
+        lateThreshold: '14:14',
+        halfDayThreshold: '18:00',
+        breakDuration: 45,
+        enabled: true,
+        color: 'orange'
+      },
+      shift4: { 
+        name: 'Shift Nuit', 
+        start: '22:00', 
+        end: '06:00',
+        lateThreshold: '22:14',
+        halfDayThreshold: '02:00',
+        breakDuration: 30,
+        enabled: true,
+        color: 'purple'
+      }
     },
     notifications: {
       emailReminders: true,
@@ -80,88 +115,99 @@ const SettingsPage = () => {
   // Charger les paramètres
   useEffect(() => {
     console.log('🔄 useEffect - Chargement initial des paramètres');
-    loadSettings(true); // Force le chargement initial
+    loadSettings(true);
   }, []);
 
-  // Fonction pour charger les paramètres avec option de force
+  // Fonction pour charger les paramètres
   const loadSettings = async (force = false) => {
-    console.log(`🔄 loadSettings appelé (force: ${force})`);
-    
-    if (refreshing) {
-      console.log('⏳ Refresh déjà en cours, skip...');
-      return;
-    }
+  console.log(`🔄 loadSettings appelé (force: ${force})`);
+  
+  if (refreshing) {
+    console.log('⏳ Refresh déjà en cours, skip...');
+    return;
+  }
 
-    setRefreshing(true);
-    if (!force) setLoading(true);
+  setRefreshing(true);
+  if (!force) setLoading(true);
+  
+  try {
+    console.log('📡 Appel API pour les paramètres...');
     
-    try {
-      console.log('📡 Appel API pour les paramètres...');
-      
-      // Options pour l'appel API
-      const options = force ? { skipCache: true } : {};
-      
-      // CORRECTION: Appel API avec gestion correcte de la réponse
-      const response = await settingsService.getSettings(options);
-      
-      console.log('📥 Réponse API complète:', response);
-      
-      // 🔧 CORRECTION IMPORTANTE: Vérifier la structure de la réponse
-      let settingsData;
-      
-      if (response && typeof response === 'object') {
-        // Si response a une propriété 'data', c'est là que sont les settings
-        if (response.data && typeof response.data === 'object') {
-          settingsData = response.data;
-        } 
-        // Sinon, response est directement les settings
-        else {
-          settingsData = response;
-        }
+    const options = force ? { skipCache: true } : {};
+    const response = await settingsService.getSettings(options);
+    
+    console.log('📥 Réponse API complète:', response);
+    
+    let settingsData;
+    
+    if (response && typeof response === 'object') {
+      if (response.data && typeof response.data === 'object') {
+        settingsData = response.data;
       } else {
-        console.warn('⚠️ Réponse API invalide, utilisation des valeurs par défaut');
-        settingsData = {};
+        settingsData = response;
       }
-      
-      console.log('📊 Données settings extraites:', settingsData);
-      console.log('🎯 Features dans les données:', settingsData.features);
-      
-      // Mettre à jour l'état avec les données reçues
-      const updatedSettings = {
-        company: settingsData.company || settings.company,
-        attendance: settingsData.attendance || settings.attendance,
-        shifts: settingsData.shifts || settings.shifts,
-        notifications: settingsData.notifications || settings.notifications,
-        // CORRECTION: S'assurer que features a toujours toutes les propriétés
-        features: {
-          qrCodeCheckin: settingsData.features?.qrCodeCheckin ?? false,
-          facialRecognition: settingsData.features?.facialRecognition ?? true,
-          geoLocation: settingsData.features?.geoLocation ?? false,
-          multiShift: settingsData.features?.multiShift ?? true,
-          manualCheckin: settingsData.features?.manualCheckin ?? true
-        }
-      };
-      
-      console.log('🔄 Settings après mise à jour:', updatedSettings.features);
-      
-      setSettings(updatedSettings);
-      setLastUpdated(new Date().toISOString());
-      
-      // Sauvegarder dans localStorage pour debug
-      localStorage.setItem('last_settings_loaded', JSON.stringify(updatedSettings));
-      
-      toast.success('Paramètres chargés avec succès');
-      
-    } catch (error) {
-      console.error('❌ Erreur chargement paramètres:', error);
-      toast.error(`Erreur chargement: ${error.message || 'Erreur inconnue'}`);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    } else {
+      console.warn('⚠️ Réponse API invalide, utilisation des valeurs par défaut');
+      settingsData = {};
     }
-  };
-
-  const handleInputChange = (section, field, value) => {
+    
+    console.log('📊 Données settings extraites:', settingsData);
+    
+    // ✅ TOUT LE TRAITEMENT DES DONNÉES DOIT ÊTRE ICI
+    const updatedSettings = {
+      company: settingsData.company || settings.company,
+      attendance: {
+        ...settings.attendance,
+        ...(settingsData.attendance || {})
+      },
+      shifts: {
+        shift1: {
+          ...settings.shifts.shift1,
+          ...(settingsData.shifts?.shift1 || {})
+        },
+        shift2: {
+          ...settings.shifts.shift2,
+          ...(settingsData.shifts?.shift2 || {})
+        },
+        shift3: {
+          ...settings.shifts.shift3,
+          ...(settingsData.shifts?.shift3 || {})
+        },
+        shift4: {
+          ...settings.shifts.shift4,
+          ...(settingsData.shifts?.shift4 || {})
+        }
+      },
+      notifications: settingsData.notifications || settings.notifications,
+      features: {
+        qrCodeCheckin: settingsData.features?.qrCodeCheckin ?? false,
+        facialRecognition: settingsData.features?.facialRecognition ?? true,
+        geoLocation: settingsData.features?.geoLocation ?? false,
+        multiShift: settingsData.features?.multiShift ?? true,
+        manualCheckin: settingsData.features?.manualCheckin ?? true
+      }
+    };
+    
+    console.log('🔄 Settings après mise à jour:', updatedSettings);
+    
+    setSettings(updatedSettings);
+    setLastUpdated(new Date().toISOString());
+    
+    localStorage.setItem('last_settings_loaded', JSON.stringify(updatedSettings));
+    
+    toast.success('Paramètres chargés avec succès');
+    
+  } catch (error) {
+    console.error('❌ Erreur chargement paramètres:', error);
+    toast.error(`Erreur chargement: ${error.message || 'Erreur inconnue'}`);
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
+      
+      
+const handleInputChange = (section, field, value) => {
     console.log(`✏️ Modification: ${section}.${field} =`, value);
     
     setSettings(prev => ({
@@ -182,6 +228,21 @@ const SettingsPage = () => {
         ...prev[section],
         [subsection]: {
           ...prev[section][subsection],
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  const handleShiftChange = (shiftKey, field, value) => {
+    console.log(`✏️ Shift ${shiftKey}.${field} =`, value);
+    
+    setSettings(prev => ({
+      ...prev,
+      shifts: {
+        ...prev.shifts,
+        [shiftKey]: {
+          ...prev.shifts[shiftKey],
           [field]: value
         }
       }
@@ -285,7 +346,6 @@ const SettingsPage = () => {
     
     setSaving(true);
     try {
-      // CORRECTION: Envoyer les settings dans le format attendu par le backend
       const dataToSend = {
         features: settings.features,
         company: settings.company,
@@ -303,9 +363,8 @@ const SettingsPage = () => {
       if (response && response.success !== false) {
         toast.success('Paramètres sauvegardés avec succès!');
         
-        // ⭐ IMPORTANT: Recharger les settings APRÈS la sauvegarde
         setTimeout(() => {
-          loadSettings(true); // Force le rechargement
+          loadSettings(true);
         }, 1000);
         
       } else {
@@ -322,7 +381,6 @@ const SettingsPage = () => {
   const handleResetSettings = async () => {
     if (window.confirm('Êtes-vous sûr de vouloir réinitialiser tous les paramètres aux valeurs par défaut ?')) {
       try {
-        // Pour l'instant, on simule une réinitialisation côté frontend
         const defaultSettings = {
           company: {
             name: '',
@@ -331,20 +389,52 @@ const SettingsPage = () => {
             phone: ''
           },
           attendance: {
-            workStartTime: '08:00',
-            workEndTime: '17:00',
-            lateThreshold: '09:15',
-            halfDayThreshold: '12:00',
-            workDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
-            breakDuration: 60,
+            workDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
             overtimeEnabled: false,
-            overtimeThreshold: 8
+            overtimeThreshold: 8,
+            globalBreakDuration: 60
           },
           shifts: {
-            shift1: { name: 'Shift Standard', start: '08:00', end: '17:00' },
-            shift2: { name: 'Shift Matin', start: '06:00', end: '14:00' },
-            shift3: { name: 'Shift Après-midi', start: '14:00', end: '22:00' },
-            shift4: { name: 'Shift Nuit', start: '22:00', end: '06:00' }
+            shift1: { 
+              name: 'Shift Standard', 
+              start: '08:00', 
+              end: '17:00',
+              lateThreshold: '08:14',
+              halfDayThreshold: '12:00',
+              breakDuration: 60,
+              enabled: true,
+              color: 'blue'
+            },
+            shift2: { 
+              name: 'Shift Matin', 
+              start: '06:00', 
+              end: '14:00',
+              lateThreshold: '06:14',
+              halfDayThreshold: '10:00',
+              breakDuration: 45,
+              enabled: true,
+              color: 'green'
+            },
+            shift3: { 
+              name: 'Shift Après-midi', 
+              start: '14:00', 
+              end: '22:00',
+              lateThreshold: '14:14',
+              halfDayThreshold: '18:00',
+              breakDuration: 45,
+              enabled: true,
+              color: 'orange'
+            },
+            shift4: { 
+              name: 'Shift Nuit', 
+              start: '22:00', 
+              end: '06:00',
+              lateThreshold: '22:14',
+              halfDayThreshold: '02:00',
+              breakDuration: 30,
+              enabled: true,
+              color: 'purple'
+            }
           },
           notifications: {
             emailReminders: true,
@@ -365,10 +455,7 @@ const SettingsPage = () => {
         setSettings(defaultSettings);
         toast.success('Paramètres réinitialisés localement');
         
-        // Sauvegarder les valeurs par défaut
         await settingsService.updateSettings(defaultSettings);
-        
-        // Recharger pour confirmer
         loadSettings(true);
         
       } catch (error) {
@@ -378,7 +465,6 @@ const SettingsPage = () => {
     }
   };
 
-  // Fonction pour vérifier manuellement les paramètres
   const verifySettings = async () => {
     try {
       console.log('🔍 Vérification manuelle des paramètres...');
@@ -390,7 +476,6 @@ const SettingsPage = () => {
       const apiFeatures = response?.data?.features || response?.features || {};
       const localFeatures = settings.features;
       
-      // Comparer
       let allMatch = true;
       Object.keys(localFeatures).forEach(key => {
         if (apiFeatures[key] !== localFeatures[key]) {
@@ -410,6 +495,26 @@ const SettingsPage = () => {
     } catch (error) {
       console.error('❌ Erreur vérification:', error);
     }
+  };
+
+  const getShiftIcon = (shiftName) => {
+    if (shiftName.includes('Matin')) return <FaSun className="text-yellow-500" />;
+    if (shiftName.includes('Après-midi')) return <FaSun className="text-orange-500" />;
+    if (shiftName.includes('Nuit')) return <FaMoon className="text-indigo-500" />;
+    if (shiftName.includes('Soir')) return <FaCloudMoon className="text-purple-500" />;
+    return <FaClock className="text-blue-500" />;
+  };
+
+  const getShiftColor = (color) => {
+    const colors = {
+      blue: 'border-blue-200 bg-blue-50',
+      green: 'border-green-200 bg-green-50',
+      orange: 'border-orange-200 bg-orange-50',
+      purple: 'border-purple-200 bg-purple-50',
+      red: 'border-red-200 bg-red-50',
+      yellow: 'border-yellow-200 bg-yellow-50'
+    };
+    return colors[color] || 'border-gray-200 bg-gray-50';
   };
 
   const workDaysOptions = [
@@ -476,41 +581,18 @@ const SettingsPage = () => {
       case 'attendance':
         return (
           <Card>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Paramètres de présence</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Heure de début"
-                type="time"
-                value={settings.attendance.workStartTime}
-                onChange={(e) => handleInputChange('attendance', 'workStartTime', e.target.value)}
-              />
-              
-              <Input
-                label="Heure de fin"
-                type="time"
-                value={settings.attendance.workEndTime}
-                onChange={(e) => handleInputChange('attendance', 'workEndTime', e.target.value)}
-              />
-              
-              <Input
-                label="Seuil de retard (HH:MM)"
-                type="time"
-                value={settings.attendance.lateThreshold}
-                onChange={(e) => handleInputChange('attendance', 'lateThreshold', e.target.value)}
-                helperText="Heure à partir de laquelle un employé est considéré en retard"
-              />
-              
-              <Input
-                label="Seuil demi-journée (HH:MM)"
-                type="time"
-                value={settings.attendance.halfDayThreshold}
-                onChange={(e) => handleInputChange('attendance', 'halfDayThreshold', e.target.value)}
-              />
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Paramètres généraux de présence</h3>
+            
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Note:</strong> Les heures de travail, seuils de retard et durées de pause sont configurés 
+                dans l'onglet <strong>"Shifts"</strong>.
+              </p>
             </div>
             
             <div className="mt-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Jours de travail
+                Jours de travail (applicables à tous les shifts)
               </label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {workDaysOptions.map((day) => (
@@ -533,16 +615,7 @@ const SettingsPage = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <Input
-                label="Durée de pause (minutes)"
-                type="number"
-                value={settings.attendance.breakDuration}
-                onChange={(e) => handleInputChange('attendance', 'breakDuration', parseInt(e.target.value) || 60)}
-                min={0}
-                max={180}
-              />
-              
-              <div className="flex items-center space-x-3 mt-6">
+              <div className="flex items-center space-x-3">
                 <input
                   type="checkbox"
                   id="overtimeEnabled"
@@ -566,6 +639,25 @@ const SettingsPage = () => {
                 />
               )}
             </div>
+
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-medium text-gray-900 mb-2">Résumé des shifts configurés</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Object.entries(settings.shifts).map(([key, shift]) => (
+                  shift.enabled && (
+                    <div key={key} className="flex items-center justify-between p-2 bg-white rounded border">
+                      <div className="flex items-center gap-2">
+                        {getShiftIcon(shift.name)}
+                        <span className="font-medium">{shift.name}</span>
+                      </div>
+                      <span className="text-sm text-gray-600">
+                        {shift.start} - {shift.end}
+                      </span>
+                    </div>
+                  )
+                ))}
+              </div>
+            </div>
           </Card>
         );
       
@@ -573,32 +665,136 @@ const SettingsPage = () => {
         return (
           <Card>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Gestion des shifts</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Configurez les horaires et seuils spécifiques pour chaque shift.
+            </p>
+            
             <div className="space-y-6">
               {Object.entries(settings.shifts).map(([key, shift]) => (
-                <div key={key} className="border border-gray-200 rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div 
+                  key={key} 
+                  className={`border rounded-lg p-4 ${getShiftColor(shift.color)}`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      {getShiftIcon(shift.name)}
+                      <h4 className="font-semibold text-gray-900">{shift.name}</h4>
+                    </div>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={shift.enabled}
+                        onChange={(e) => handleShiftChange(key, 'enabled', e.target.checked)}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-gray-600">Actif</span>
+                    </label>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <Input
                       label="Nom du shift"
                       value={shift.name}
-                      onChange={(e) => handleDeepChange('shifts', key, 'name', e.target.value)}
+                      onChange={(e) => handleShiftChange(key, 'name', e.target.value)}
+                      disabled={!shift.enabled}
                     />
                     
                     <Input
                       label="Heure de début"
                       type="time"
                       value={shift.start}
-                      onChange={(e) => handleDeepChange('shifts', key, 'start', e.target.value)}
+                      onChange={(e) => handleShiftChange(key, 'start', e.target.value)}
+                      disabled={!shift.enabled}
                     />
                     
                     <Input
                       label="Heure de fin"
                       type="time"
                       value={shift.end}
-                      onChange={(e) => handleDeepChange('shifts', key, 'end', e.target.value)}
+                      onChange={(e) => handleShiftChange(key, 'end', e.target.value)}
+                      disabled={!shift.enabled}
                     />
+                    
+                    <Input
+                      label="Seuil de retard"
+                      type="time"
+                      value={shift.lateThreshold}
+                      onChange={(e) => handleShiftChange(key, 'lateThreshold', e.target.value)}
+                      helperText="Heure à partir de laquelle un employé est considéré en retard"
+                      disabled={!shift.enabled}
+                    />
+                    
+                    <Input
+                      label="Seuil demi-journée"
+                      type="time"
+                      value={shift.halfDayThreshold}
+                      onChange={(e) => handleShiftChange(key, 'halfDayThreshold', e.target.value)}
+                      helperText="Heure à partir de laquelle une demi-journée est comptée"
+                      disabled={!shift.enabled}
+                    />
+                    
+                    <Input
+                      label="Durée de pause (minutes)"
+                      type="number"
+                      value={shift.breakDuration}
+                      onChange={(e) => handleShiftChange(key, 'breakDuration', parseInt(e.target.value) || 0)}
+                      min={0}
+                      max={180}
+                      helperText="Durée de la pause en minutes"
+                      disabled={!shift.enabled}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-4">
+                    <label className="text-sm text-gray-600">Couleur:</label>
+                    <select
+                      value={shift.color}
+                      onChange={(e) => handleShiftChange(key, 'color', e.target.value)}
+                      className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                      disabled={!shift.enabled}
+                    >
+                      <option value="blue">Bleu</option>
+                      <option value="green">Vert</option>
+                      <option value="orange">Orange</option>
+                      <option value="purple">Violet</option>
+                      <option value="red">Rouge</option>
+                      <option value="yellow">Jaune</option>
+                    </select>
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-6 p-4 bg-yellow-50 rounded-lg">
+              <h4 className="font-medium text-gray-900 mb-2">Aperçu des seuils par shift</h4>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Shift</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Début</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fin</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Retard</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">½ Journée</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pause</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {Object.entries(settings.shifts).map(([key, shift]) => (
+                      shift.enabled && (
+                        <tr key={key}>
+                          <td className="px-4 py-2 text-sm font-medium text-gray-900">{shift.name}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{shift.start}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{shift.end}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{shift.lateThreshold}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{shift.halfDayThreshold}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{shift.breakDuration} min</td>
+                        </tr>
+                      )
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </Card>
         );
@@ -897,9 +1093,6 @@ const SettingsPage = () => {
     }
   };
 
-  // Log de débogage
-  console.log('🔍 État current settings.features:', settings.features);
-  
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -1014,6 +1207,7 @@ const SettingsPage = () => {
                     console.log('🔍 Débug:');
                     console.log('- Settings locales:', settings);
                     console.log('- Features locales:', settings.features);
+                    console.log('- Shifts:', settings.shifts);
                     console.log('- Dernière mise à jour:', lastUpdated);
                   }}
                   className="w-full flex items-center justify-center gap-2 text-sm"

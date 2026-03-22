@@ -24,7 +24,7 @@ const RECONNECTION_DELAY = 2000;
 let lastBackendCheck = 0;
 const BACKEND_CHECK_COOLDOWN = 10000;
 
-// ==================== FONCTIONS UTILITAIRES ====================  
+// ==================== FONCTIONS UTILITAIRES ====================   
 
 // Fonction utilitaire pour préparer les données pour l'API
 const prepareApiData = (data) => {
@@ -96,7 +96,7 @@ const checkBackendStatus = async (force = false) => {
   
   try {
     const response = await axios.get(`${API_BASE_URL}/ping`, {
-      timeout: 5000, // Augmenter le timeout
+      timeout: 5000,
       headers: {
         'Cache-Control': 'no-cache'
       }
@@ -105,7 +105,6 @@ const checkBackendStatus = async (force = false) => {
     const isConnected = response.status === 200;
     backendStatus = isConnected;
     
-    // SEULEMENT afficher si changement
     if (isConnected && !backendStatus) {
       console.log(`🌐 Backend reconnecté: ✅ Connecté`);
       requestCache.clear();
@@ -114,7 +113,6 @@ const checkBackendStatus = async (force = false) => {
     return isConnected;
     
   } catch (error) {
-    // SEULEMENT afficher si vraiment déconnecté (pas juste timeout)
     const isRealError = !error.code || 
                        (error.code !== 'ECONNABORTED' && 
                         !error.message.includes('timeout'));
@@ -292,7 +290,7 @@ const makeRequestWithRetry = async (config, retries = RECONNECTION_ATTEMPTS, del
   throw lastError;
 };
 
-// ==================== FONCTION DE REQUÊTE PRINCIPALE - CORRIGÉE ====================
+// ==================== FONCTION DE REQUÊTE PRINCIPALE ====================
 
 const makeRequest = async (method, url, data = null, options = {}) => {
   const cacheKey = `${method}:${url}:${JSON.stringify(data)}`;
@@ -300,7 +298,7 @@ const makeRequest = async (method, url, data = null, options = {}) => {
   
   console.log(`📤 REQUÊTE API [${method}] ${url}`);
   if (data) {
-    console.log(`📦 Données envoyées:`, data);
+    console.log(`📦 Données originales:`, data);
   }
   
   cleanCache();
@@ -342,25 +340,18 @@ const makeRequest = async (method, url, data = null, options = {}) => {
       ...options
     };
     
-    // Ajouter les données - CORRECTION CRITIQUE
+    // Ajouter les données
     if (data && method !== 'GET') {
-      // Préparer les données
       const preparedData = prepareApiData(data);
+      config.data = preparedData;
       
-      // S'assurer que les données sont bien stringifiées en JSON
-      config.data = JSON.stringify(preparedData);
-      
-      // Vérifier que le JSON est valide
       try {
-        JSON.parse(config.data);
-      } catch (jsonError) {
-        console.error('❌ JSON invalide:', jsonError.message);
-        console.error('❌ Données problématiques:', preparedData);
-        throw new Error(`Données JSON invalides: ${jsonError.message}`);
+        const jsonString = JSON.stringify(preparedData);
+        console.log(`📤 JSON à envoyer (${jsonString.length} caractères):`, 
+          jsonString.length > 100 ? jsonString.substring(0, 100) + '...' : jsonString);
+      } catch (e) {
+        // Ignorer les erreurs de stringification ici
       }
-      
-      console.log(`📤 Corps de la requête (${config.data.length} caractères):`, 
-        config.data.length > 100 ? config.data.substring(0, 100) + '...' : config.data);
     }
     
     // Ajouter le token
@@ -368,11 +359,10 @@ const makeRequest = async (method, url, data = null, options = {}) => {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
     
-    // ========== GESTION INTELLIGENTE DU CACHE POUR LES SETTINGS ==========
+    // Gestion intelligente du cache pour les settings
     const isSettingsRequest = url.includes('/settings');
     const shouldUseCache = isGetRequest && !options.skipCache && !isSettingsRequest;
     
-    // Pour les settings, JAMAIS utiliser le cache sans skipCache explicit
     if (shouldUseCache) {
       const cached = requestCache.get(cacheKey);
       if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
@@ -380,7 +370,6 @@ const makeRequest = async (method, url, data = null, options = {}) => {
         return cached.data;
       }
     }
-    // ==============================================
     
     console.log(`🔗 Envoi requête à: ${config.url}`);
     const response = await makeRequestWithRetry(config, options.retries || RECONNECTION_ATTEMPTS);
@@ -412,7 +401,7 @@ const makeRequest = async (method, url, data = null, options = {}) => {
     const errorData = extractErrorData(error);
     console.error(`📊 Statut: ${errorData.status}, Message: ${errorData.message}`);
     
-    // Gestion de l'erreur 401
+    // Gestion de l'erreur 401 (token expiré)
     if (errorData.status === 401 && !options._retry) {
       console.log('🔐 Token expiré, tentative de rafraîchissement...');
       
@@ -513,7 +502,7 @@ const makeRequest = async (method, url, data = null, options = {}) => {
   }
 };
 
-// ==================== API COMPLÈTE ====================
+// ==================== API COMPLÈTE AVEC SHIFTS ====================
 
 const api = {
   // ==================== AUTHENTIFICATION ====================
@@ -580,6 +569,12 @@ const api = {
       ...options
     }),
   
+  activateEmployee: (id) => 
+    makeRequest('PATCH', `/employees/${id}/activate`),
+  
+  deactivateEmployee: (id) => 
+    makeRequest('PATCH', `/employees/${id}/deactivate`),
+  
   // ==================== PRÉSENCES ====================
   getAttendance: (params = {}, options = {}) => 
     makeRequest('GET', `/attendance${Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''}`, null, {
@@ -611,7 +606,6 @@ const api = {
       ...options
     }),
   
-  // NOUVELLE FONCTION : Réinitialiser le pointage du jour
   resetTodayAttendance: (employeeId, options = {}) => 
     makeRequest('DELETE', `/attendance/reset-today/${employeeId}`, null, {
       showSuccess: true,
@@ -619,7 +613,6 @@ const api = {
     }),
   
   // ==================== POINTAGE MANUEL ====================
-  // Pointage manuel unifié pour check-in et check-out
   manualAttendance: async (action, data) => {
     console.log(`📝 Pointage manuel - ${action}`, data);
     try {
@@ -639,7 +632,6 @@ const api = {
     }
   },
 
-  // Anciennes fonctions de pointage (pour compatibilité)
   manualCheckIn: async (data) => {
     return api.manualAttendance('checkin', data);
   },
@@ -648,7 +640,6 @@ const api = {
     return api.manualAttendance('checkout', data);
   },
 
-  // Fonctions de pointage standard
   checkIn: (data = {}) => 
     makeRequest('POST', '/attendance/checkin', data),
   
@@ -666,6 +657,221 @@ const api = {
       failSilently: true,
       ...options
     }),
+  
+  // ==================== ⭐ NOUVEAU: SERVICE SHIFTS ====================
+  shifts: {
+    /**
+     * Récupérer tous les shifts disponibles depuis les paramètres
+     */
+    getAvailableShifts: async (options = {}) => {
+      try {
+        // CORRECTION: Utiliser /api/shifts/available au lieu de /settings/shifts
+        const response = await makeRequest('GET', '/shifts/available', null, {
+          skipCache: false,
+          ...options
+        });
+        
+        if (response.success && response.data) {
+          // Transformer en tableau pour faciliter l'utilisation
+          const shiftsArray = Array.isArray(response.data) 
+            ? response.data 
+            : Object.entries(response.data).map(([key, value]) => ({
+                key,
+                ...value
+              }));
+          
+          return {
+            success: true,
+            data: shiftsArray,
+            raw: response.data
+          };
+        }
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur getAvailableShifts:', error);
+        return {
+          success: false,
+          error: error.message,
+          data: []
+        };
+      }
+    },
+
+    /**
+     * Récupérer les informations de shift d'un employé
+     */
+    getEmployeeShiftInfo: async (employeeId, options = {}) => {
+      try {
+        const response = await makeRequest('GET', `/shifts/employee/${employeeId}`, null, {
+          skipCache: true,
+          ...options
+        });
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur getEmployeeShiftInfo:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Récupérer l'historique des shifts d'un employé
+     */
+    getEmployeeShiftHistory: async (employeeId, limit = 20, options = {}) => {
+      try {
+        const response = await makeRequest('GET', `/shifts/employee/${employeeId}/history?limit=${limit}`, null, {
+          skipCache: true,
+          ...options
+        });
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur getEmployeeShiftHistory:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Assigner un shift manuellement pour une semaine spécifique
+     */
+    assignManualShift: async (employeeId, data, options = {}) => {
+      try {
+        console.log(`📝 Assignation manuelle shift pour ${employeeId}:`, data);
+        const response = await makeRequest('POST', `/shifts/employee/${employeeId}/manual`, data, {
+          skipCache: true,
+          ...options
+        });
+        
+        // Nettoyer le cache des shifts après modification
+        api.clearCacheByPattern(`/shifts/employee/${employeeId}`);
+        
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur assignManualShift:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Supprimer une assignation manuelle
+     */
+    deleteManualAssignment: async (assignmentId, options = {}) => {
+      try {
+        const response = await makeRequest('DELETE', `/shifts/manual/${assignmentId}`, null, {
+          skipCache: true,
+          ...options
+        });
+        
+        // Nettoyer le cache général des shifts
+        api.clearCacheByPattern('/shifts/employee');
+        
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur deleteManualAssignment:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Modifier la configuration de départ d'un employé
+     */
+    updateStartConfig: async (employeeId, data, options = {}) => {
+      try {
+        console.log(`📝 Mise à jour config départ pour ${employeeId}:`, data);
+        const response = await makeRequest('PUT', `/shifts/employee/${employeeId}/start-config`, data, {
+          skipCache: true,
+          ...options
+        });
+        
+        // Nettoyer le cache
+        api.clearCacheByPattern(`/shifts/employee/${employeeId}`);
+        
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur updateStartConfig:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Initialiser les positions de départ pour un département
+     */
+    initializeDepartmentStarts: async (department, startWeek = 1, startYear = 2026, options = {}) => {
+      try {
+        console.log(`📝 Initialisation des positions pour ${department}`);
+        const response = await makeRequest('POST', '/shifts/initialize-starts', {
+          department,
+          startWeek,
+          startYear
+        }, {
+          skipCache: true,
+          ...options
+        });
+        
+        // Nettoyer tout le cache des shifts
+        api.clearCacheByPattern('/shifts');
+        
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur initializeDepartmentStarts:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Obtenir le calendrier prévisionnel pour une année
+     */
+    getForecast: async (year, department = null, options = {}) => {
+      try {
+        const url = department 
+          ? `/shifts/forecast/${year}?department=${encodeURIComponent(department)}`
+          : `/shifts/forecast/${year}`;
+        
+        const response = await makeRequest('GET', url, null, {
+          skipCache: true,
+          ...options
+        });
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur getForecast:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Récupérer les statistiques par shift
+     */
+    getShiftStats: async (date = null, options = {}) => {
+      try {
+        const url = date ? `/shifts/stats?date=${date}` : '/shifts/stats';
+        const response = await makeRequest('GET', url, null, {
+          ...options
+        });
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur getShiftStats:', error);
+        // Retourner un objet vide en cas d'erreur pour ne pas bloquer l'UI
+        return {
+          success: false,
+          data: {},
+          error: error.message
+        };
+      }
+    },
+
+    /**
+     * Récupérer le shift actuel pour un employé (pour affichage)
+     */
+    getCurrentShift: async (employeeId, options = {}) => {
+      try {
+        const response = await makeRequest('GET', `/shifts/employee/${employeeId}/current`, null, {
+          ...options
+        });
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur getCurrentShift:', error);
+        throw error;
+      }
+    }
+  },
   
   // ==================== RECONNAISSANCE FACIALE ====================
   facialRecognition: (photoData) => 
@@ -715,11 +921,9 @@ const api = {
       ...options
     }),
 
-  // NOUVELLE FONCTION : Mettre à jour un profil utilisateur par ID
   updateUserProfile: async (userId, userData) => {
     console.log(`📝 Mise à jour profil utilisateur #${userId}`, userData);
     
-    // Nettoyer les données
     const cleanData = prepareApiData(userData);
     
     console.log('📦 Données nettoyées:', cleanData);
@@ -741,27 +945,23 @@ const api = {
     }
   },
 
-  // Fonction existante (mise à jour du profil courant)
   updateProfile: async (userData) => {
     console.log('📝 Mise à jour profil - Données:', userData);
     
-    // S'assurer que les données sont un objet valide
     if (!userData || typeof userData !== 'object') {
       throw new Error('Données de profil invalides');
     }
     
-    // Nettoyer les données
     const cleanData = prepareApiData(userData);
     
     console.log('📦 Données nettoyées:', cleanData);
     
     try {
-      // Utiliser une méthode PUT avec un timeout plus long
       const response = await makeRequest('PUT', '/users/profile', cleanData, {
         headers: {
           'Content-Type': 'application/json',
         },
-        timeout: 30000, // 30 secondes pour le profil
+        timeout: 30000,
         skipCache: true
       });
       
@@ -773,7 +973,6 @@ const api = {
     }
   },
 
-  // Fonction de secours pour updateProfile
   updateProfileFallback: async (userData) => {
     console.log('🔄 Utilisation méthode de secours pour mise à jour profil');
     
@@ -807,16 +1006,14 @@ const api = {
     }
   },
   
-  // ==================== PARAMÈTRES - VERSION AMÉLIORÉE ====================
+  // ==================== PARAMÈTRES ====================
   getSettings: (options = {}) => {
-    // Forcer skipCache pour les settings sauf si explicitement demandé autrement
     const finalOptions = {
       skipCache: true,
       failSilently: true,
       ...options
     };
     
-    // Ajouter un timestamp pour éviter tout risque de cache
     const timestamp = Date.now();
     const url = `/settings?t=${timestamp}`;
     
@@ -824,19 +1021,15 @@ const api = {
   },
   
   updateSettings: async (settingsData) => {
-    // Nettoyer le cache des settings AVANT la mise à jour
     api.clearSettingsCache();
     
-    // Mettre à jour les settings
     const response = await makeRequest('PUT', '/settings', settingsData);
     
-    // Nettoyer à nouveau après la mise à jour
     api.clearSettingsCache();
     
     return response;
   },
   
-  // Nouvelle fonction pour récupérer des settings spécifiques
   getSetting: async (key, defaultValue = null, options = {}) => {
     try {
       const response = await api.getSettings(options);
@@ -890,6 +1083,7 @@ const api = {
       settings: 0,
       employees: 0,
       attendance: 0,
+      shifts: 0,
       others: 0
     };
     
@@ -900,6 +1094,8 @@ const api = {
         stats.employees++;
       } else if (key.includes('/attendance')) {
         stats.attendance++;
+      } else if (key.includes('/shifts')) {
+        stats.shifts++;
       } else {
         stats.others++;
       }
@@ -1030,7 +1226,7 @@ const api = {
     }
   },
   
-  // ==================== NOUVELLES FONCTIONS ====================
+  // ==================== CONNEXION ====================
   checkBackendStatus: (force = false) => checkBackendStatus(force),
   
   getConnectionStatus: () => backendStatus,
@@ -1262,6 +1458,7 @@ export const facialService = api;
 export const reportService = api;
 export const userService = api;
 export const settingsService = api;
+export const shiftService = api.shifts; // ⭐ EXPORT DU SERVICE SHIFTS
 
 export { makeRequest, getToken, setToken, removeToken, makeRequestWithRetry, getAuthHeaders };
 
@@ -1271,4 +1468,5 @@ console.log('📊 Cache activé (sauf pour settings):', CACHE_DURATION, 'ms');
 console.log('⏱️  Délai minimum:', MIN_REQUEST_DELAY, 'ms');
 console.log('🔄 Reconnexion:', RECONNECTION_ATTEMPTS, 'tentatives');
 console.log('✅ Fonctions de pointage manuel améliorées');
+console.log('📋 Service shifts ajouté avec', Object.keys(api.shifts).length, 'méthodes');
 console.log('📋 Fonctions disponibles:', Object.keys(api).length);

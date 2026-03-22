@@ -6,7 +6,10 @@ import LoginForm from './components/auth/LoginForm.jsx';
 import Navbar from './components/Navbar.jsx';
 import './App.css';
 
-// Import de l'API pour vérifier la connexion
+// ==================== ⭐ COMPOSANT D'ACTIVATION DE LICENCE ====================
+import LicenseActivation from './components/LicenseActivation.jsx';
+
+// Import de l'API pour vérifier la connexion attendance
 import api from './services/api.jsx';
 
 // Lazy loading pour optimiser le chargement
@@ -177,7 +180,7 @@ const OfflineOverlay = () => {
               </ul>
               <div className="mt-3 pt-3 border-t border-gray-700">
                 <p className="text-xs text-gray-500">
-                  URL actuelle: {import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}
+                  URL actuelle: {import.meta.env.VITE_API_URL || 'http://10.191.231.187:5000/api'}
                 </p>
               </div>
             </div>
@@ -385,9 +388,56 @@ const RoleRoute = ({ children, roles = [] }) => {
   return children;
 };
 
+// ==================== ⭐ COMPOSANT PRINCIPAL AVEC GESTION DE LICENCE ====================
 const AppRoutes = () => {
   const { user } = useAuth();
-  
+  const [licenseValid, setLicenseValid] = useState(false);
+  const [checkingLicense, setCheckingLicense] = useState(true);
+
+  // Vérifier le statut de la licence au démarrage
+  useEffect(() => {
+    const checkLicense = async () => {
+      try {
+        setCheckingLicense(true);
+        const response = await api.get('/license-status');
+        
+        // Si la licence est valide OU en période d'essai valide, on continue
+        if (response.valid || (response.trial && !response.expired)) {
+          setLicenseValid(true);
+        } else {
+          setLicenseValid(false);
+        }
+      } catch (error) {
+        console.error('❌ Erreur vérification licence:', error);
+        // En cas d'erreur, on considère que la licence n'est pas valide
+        setLicenseValid(false);
+      } finally {
+        setCheckingLicense(false);
+      }
+    };
+
+    checkLicense();
+  }, []);
+
+  // Pendant la vérification, afficher le loader
+  if (checkingLicense) {
+    return <PageLoader />;
+  }
+
+  // Si la licence n'est pas valide, afficher la page d'activation
+  if (!licenseValid) {
+    return (
+      <LicenseActivation 
+        onActivated={() => {
+          setLicenseValid(true);
+          // Recharger les données après activation
+          window.location.reload();
+        }} 
+      />
+    );
+  }
+
+  // Routes normales (licence valide)
   return (
     <Routes>
       {/* Route racine avec redirection automatique */}
@@ -533,6 +583,15 @@ const AppRoutes = () => {
       
       {/* Page principale des pointages */}
       <Route path="/attendance" element={
+        <PrivateRoute>
+          <MainLayout>
+            <AttendancePage />
+          </MainLayout>
+        </PrivateRoute>
+      } />
+
+      {/* ✅ NOUVELLE ROUTE : /my-attendance (pour les employés) */}
+      <Route path="/my-attendance" element={
         <PrivateRoute>
           <MainLayout>
             <AttendancePage />
@@ -862,7 +921,7 @@ const App = () => {
               },
               style: {
                 background: '#7F1D1D',
-                border: '1px solid #EF4444', // CORRECTION ICI
+                border: '1px solid #EF4444',
               },
             },
           }}

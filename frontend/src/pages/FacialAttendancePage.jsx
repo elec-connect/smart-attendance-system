@@ -21,7 +21,7 @@ const FacialAttendancePage = () => {
   const [selectedCameraId, setSelectedCameraId] = useState('default');
   const [isCameraReady, setIsCameraReady] = useState(false);
 
-  // Détecter les caméras disponibles - UNE SEULE FOIS
+  // Détecter les caméras disponibles - UNE SEULE FOIS 
   useEffect(() => {
     if (hasInitializedRef.current) return;
     

@@ -1,4 +1,4 @@
-// src/components/payroll/CalculateSalariesModal.jsx - VERSION COMPLÈTE CORRIGÉE   
+// src/components/payroll/CalculateSalariesModal.jsx - VERSION AVEC ENVOI EMAILS APRÈS CALCUL
 import React, { useState, useEffect, useRef } from 'react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -31,19 +31,18 @@ const CalculateSalariesModal = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
-  const [markingAsPaid, setMarkingAsPaid] = useState(false);
+  const [sendingEmails, setSendingEmails] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(monthYear || '');
   const [availableMonths, setAvailableMonths] = useState([]);
   const [results, setResults] = useState(null);
+  const [emailResults, setEmailResults] = useState(null);
   const [paymentValidation, setPaymentValidation] = useState(null);
   const [activeStep, setActiveStep] = useState('select');
   const [calculationErrors, setCalculationErrors] = useState([]);
-  const [emailStats, setEmailStats] = useState(null);
   
   const isCalculatingRef = useRef(false);
-  const isMarkingAsPaidRef = useRef(false);
-  //const processedMonthsRef = useRef(new Set());
+  const isSendingEmailsRef = useRef(false);
 
   // Charger les mois disponibles
   useEffect(() => {
@@ -56,7 +55,6 @@ const CalculateSalariesModal = ({
   // Mettre à jour le mois sélectionné
   useEffect(() => {
     if (monthYear) {
-      // S'assurer que monthYear est une chaîne
       let monthString = monthYear;
       if (typeof monthYear === 'object' && monthYear !== null) {
         monthString = monthYear.month_year || monthYear.value || monthYear.id;
@@ -72,12 +70,12 @@ const CalculateSalariesModal = ({
   const resetState = () => {
     setPreviewData(null);
     setResults(null);
+    setEmailResults(null);
     setPaymentValidation(null);
     setCalculationErrors([]);
-    setEmailStats(null);
     setActiveStep('select');
     isCalculatingRef.current = false;
-    isMarkingAsPaidRef.current = false;
+    isSendingEmailsRef.current = false;
   };
 
   const loadAvailableMonths = async () => {
@@ -116,25 +114,17 @@ const CalculateSalariesModal = ({
       setLoading(true);
       console.log('🔍 Chargement prévisualisation pour:', selectedMonth);
       
-      // S'assurer que selectedMonth est une chaîne pour les requêtes
       const monthForRequest = String(selectedMonth).trim();
       
-      // Récupérer les détails du mois
       const monthResponse = await api.get(`/payroll/pay-months/${monthForRequest}`);
-      
-      // Récupérer les employés
       const employeesResponse = await api.get('/payroll/employees');
-      
-      // Récupérer les paiements du mois
       const paymentsResponse = await api.get(`/payroll/payments/${monthForRequest}`);
       
-      // Traiter les données du mois
       let monthData = null;
       if (monthResponse && monthResponse.success) {
         monthData = monthResponse.data || monthResponse.data?.data;
       }
       
-      // Traiter les données des employés
       let employeesData = [];
       let employeesStats = { total: 0, with_config: 0, without_config: 0 };
       
@@ -150,7 +140,6 @@ const CalculateSalariesModal = ({
         employeesStats.without_config = employeesStats.total - employeesStats.with_config;
       }
       
-      // Traiter les paiements
       let paymentsData = [];
       let paymentsStats = { total: 0, amount: 0 };
       
@@ -167,7 +156,6 @@ const CalculateSalariesModal = ({
         paymentsStats.amount = paymentsData.reduce((sum, p) => sum + (parseFloat(p.net_salary) || 0), 0);
       }
       
-      // Préparer les données pour l'affichage
       setPreviewData({
         month: monthData,
         employees: employeesData,
@@ -191,10 +179,90 @@ const CalculateSalariesModal = ({
     }
   };
 
+  // ==================== FONCTION D'ENVOI DES EMAILS ====================
+  const sendPayslipEmails = async () => {
+    if (!selectedMonth || sendingEmails || isSendingEmailsRef.current) {
+      console.log('⏸️ Envoi emails déjà en cours, skip...');
+      return false;
+    }
+
+    try {
+      isSendingEmailsRef.current = true;
+      setSendingEmails(true);
+      
+      const toastId = toast.loading(
+        `📧 Envoi des fiches de paie par email pour ${getSelectedMonthName()}...\n` +
+        `⏳ Cette opération peut prendre quelques instants`,
+        { duration: null, position: 'top-center' }
+      );
+      
+      console.log('📧 Début envoi emails pour:', selectedMonth);
+      
+      // Appel à l'API d'envoi d'emails
+      const response = await api.post('/payroll/payslip/send-bulk', {
+        month_year: selectedMonth,
+        send_to_all: true
+      }, {
+        timeout: 30000 // 30 secondes timeout
+      });
+      
+      console.log('✅ Réponse envoi emails:', response);
+      
+      const data = response.data || response;
+      
+      const sentCount = data.sent || data.emails_sent || 0;
+      const failedCount = data.failed || data.emails_failed || 0;
+      const totalCount = data.total || (sentCount + failedCount) || 0;
+      
+      setEmailResults({
+        sent: sentCount,
+        failed: failedCount,
+        total: totalCount,
+        details: data.details || []
+      });
+      
+      toast.dismiss(toastId);
+      
+      if (failedCount === 0) {
+        toast.success(
+          `📧 Tous les emails ont été envoyés avec succès !\n` +
+          `✅ ${sentCount} fiche(s) de paie envoyée(s)`,
+          { duration: 5000 }
+        );
+      } else {
+        toast.success(
+          `📧 Envoi des emails terminé\n` +
+          `✅ ${sentCount} envoyés\n` +
+          `❌ ${failedCount} échecs`,
+          { duration: 5000 }
+        );
+      }
+      
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Erreur envoi emails:', error);
+      
+      const errorMessage = error.response?.data?.message || error.message;
+      
+      toast.error(
+        `❌ Erreur lors de l'envoi des emails\n` +
+        `${errorMessage}`,
+        { duration: 5000 }
+      );
+      
+      return false;
+      
+    } finally {
+      isSendingEmailsRef.current = false;
+      setSendingEmails(false);
+    }
+  };
+
+  // ==================== FONCTION DE CALCUL ====================
   const handleCalculate = async () => {
-    // Protection contre les appels multiples
     if (isCalculatingRef.current || calculating) {
-      console.log('⏸️  Calcul déjà en cours, skip...');
+      console.log('⏸️ Calcul déjà en cours, skip...');
       return;
     }
 
@@ -203,25 +271,11 @@ const CalculateSalariesModal = ({
       return;
     }
 
-    // DEBUG: Vérifier ce qui est envoyé
-    console.log('🔍 DEBUG handleCalculate:', {
-      selectedMonth,
-      type: typeof selectedMonth,
-      isObject: typeof selectedMonth === 'object',
-      stringValue: String(selectedMonth),
-      isMonthPaid: isMonthPaid()
-    });
-
-    // CORRECTION: S'assurer que month_year est une chaîne
     let monthYearToCalculate = selectedMonth;
-    
-    // Si c'est un objet, extraire la propriété month_year
     if (typeof selectedMonth === 'object' && selectedMonth !== null) {
       monthYearToCalculate = selectedMonth.month_year || selectedMonth.value || selectedMonth.id;
-      console.log('🔧 Extraction depuis objet:', monthYearToCalculate);
     }
     
-    // S'assurer que c'est une chaîne
     monthYearToCalculate = String(monthYearToCalculate).trim();
     
     if (!monthYearToCalculate || monthYearToCalculate === 'undefined' || monthYearToCalculate === 'null') {
@@ -231,7 +285,6 @@ const CalculateSalariesModal = ({
 
     console.log('📤 Envoi calcul pour:', monthYearToCalculate);
 
-    // MESSAGE DE CONFIRMATION AMÉLIORÉ POUR LES RECALCULS
     const confirmationMessage = isMonthPaid() 
       ? `⚠️ ATTENTION : Ce mois (${monthYearToCalculate}) est DÉJÀ MARQUÉ COMME PAYÉ.\n\n` +
         `UN RECALCUL VA MODIFIER LES MONTANTS EXISTANTS.\n\n` +
@@ -262,16 +315,13 @@ const CalculateSalariesModal = ({
 
       console.log('✅ Réponse calcul:', response);
       
-      // Extraire les résultats
       const resultData = response.data || response;
       setResults(resultData);
       
-      // Extraire les erreurs si elles existent
       if (resultData.data?.errors && Array.isArray(resultData.data.errors)) {
         setCalculationErrors(resultData.data.errors);
       }
       
-      // Recharger la prévisualisation
       await loadPreview();
       
       toast.success(isMonthPaid() ? '✅ Recalcul terminé avec succès !' : '✅ Calcul terminé avec succès !', {
@@ -279,7 +329,34 @@ const CalculateSalariesModal = ({
         icon: '🎉'
       });
       
-      setActiveStep('mark-paid');
+      // ===== DEMANDE D'ENVOI DES EMAILS =====
+      const shouldSendEmails = window.confirm(
+        `📧 Voulez-vous envoyer les fiches de paie par email maintenant ?\n\n` +
+        `• Les employés recevront leur fiche dans leur boîte mail\n` +
+        `• Cette opération peut prendre quelques instants\n` +
+        `• Vous pourrez aussi le faire plus tard depuis cette fenêtre\n\n` +
+        `Cliquez sur OK pour envoyer maintenant, ou Annuler pour plus tard.`
+      );
+      
+      if (shouldSendEmails) {
+        const emailsSent = await sendPayslipEmails();
+        if (emailsSent) {
+          setActiveStep('complete');
+        } else {
+          // En cas d'erreur, on demande quoi faire
+          const continueAnyway = window.confirm(
+            `⚠️ L'envoi des emails a rencontré des problèmes.\n\n` +
+            `Voulez-vous quand même terminer le processus ?\n\n` +
+            `Vous pourrez réessayer plus tard.`
+          );
+          if (continueAnyway) {
+            setActiveStep('complete');
+          }
+        }
+      } else {
+        // L'utilisateur ne veut pas envoyer maintenant
+        setActiveStep('complete');
+      }
       
     } catch (error) {
       console.error('❌ Erreur calcul salaires:', error);
@@ -297,670 +374,24 @@ const CalculateSalariesModal = ({
         }
       });
       
-      // Même en cas d'erreur, on peut passer à l'étape suivante si des calculs ont été faits
       if (error.response?.data?.calculated && error.response.data.calculated > 0) {
-        setActiveStep('mark-paid');
+        // Même en cas d'erreur partielle, proposer les emails
+        const shouldSendEmails = window.confirm(
+          `⚠️ Le calcul a partiellement réussi.\n\n` +
+          `Voulez-vous envoyer les fiches de paie pour les employés déjà calculés ?`
+        );
+        
+        if (shouldSendEmails) {
+          await sendPayslipEmails();
+        }
+        setActiveStep('complete');
       }
+      
     } finally {
       isCalculatingRef.current = false;
       setCalculating(false);
     }
   };
-
-  const handleMarkAsPaid = async () => {
-  // 🔒 PROTECTION CONTRE LES CLICS MULTIPLES 
-  if (isMarkingAsPaidRef.current || markingAsPaid) {
-    console.log('⏸️ Marquage déjà en cours, skip...');
-    toast.info('Le traitement est déjà en cours, veuillez patienter...', {
-      icon: '⏳',
-      duration: 3000,
-      style: {
-        background: '#f3f4f6',
-        color: '#374151',
-        border: '1px solid #d1d5db'
-      }
-    });
-    return;
-  }
-
-  // 🎯 ID DE SESSION POUR LE DÉBOGAGE
-  const debugSessionId = `pay-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  console.group(`🔧 [${debugSessionId}] Début marquage comme payé`);
-  
-  if (!selectedMonth) {
-    toast.error('Veuillez sélectionner un mois', {
-      icon: '❌',
-      duration: 3000
-    });
-    console.groupEnd();
-    return;
-  }
-
-  // 🔧 CONVERSION DU MOIS EN CHAÎNE
-  let monthToMark = selectedMonth;
-  if (typeof selectedMonth === 'object' && selectedMonth !== null) {
-    monthToMark = selectedMonth.month_year || selectedMonth.value || selectedMonth.id;
-    console.log('🔧 Extraction depuis objet:', monthToMark);
-  }
-  
-  monthToMark = String(monthToMark).trim();
-  console.log('💰 DEMANDE marquage comme payé pour:', monthToMark);
-  console.log('👤 Contexte:', {
-    url: window.location.href,
-    timestamp: new Date().toISOString(),
-    userAgent: navigator.userAgent.substring(0, 100)
-  });
-
-  // ==================== 🛡️ VÉRIFICATION STATUT RÉEL ====================
-  console.log('🔍 [SAFETY CHECK] Vérification statut réel avant paiement...');
-  
-  try {
-    const statusCheck = await api.get(`/payroll/pay-months/${monthToMark}`, {
-      skipCache: true,
-      timeout: 3000,
-      _retry: false,
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
-      }
-    });
-    
-    const actualStatus = statusCheck.data?.status;
-    console.log(`📊 Statut réel de ${monthToMark}: ${actualStatus}`);
-    console.log(`📊 Statut interface: ${getMonthStatus()}`);
-    
-    // CAS 1: Déjà payé
-    if (actualStatus === 'paid') {
-      console.log('✅ Mois déjà payé détecté');
-      
-      // Extraire les détails
-      const paidDate = statusCheck.data?.paid_at;
-      const formattedDate = paidDate ? 
-        new Date(paidDate).toLocaleDateString('fr-FR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }) : 'date inconnue';
-      
-      toast.success(
-        `✅ Mois ${monthToMark} déjà payé\n` +
-        `📅 Payé le: ${formattedDate}\n` +
-        `👤 Par: ${statusCheck.data?.paid_by || 'système'}`,
-        {
-          icon: '🎉',
-          duration: 6000,
-          style: {
-            background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
-            color: '#0369a1',
-            border: '2px solid #7dd3fc',
-            borderRadius: '10px'
-          },
-          position: 'top-center'
-        }
-      );
-      
-      // Mettre à jour l'interface
-      await loadPreview(true);
-      setActiveStep('complete');
-      
-      console.groupEnd();
-      return;
-    }
-    
-    // CAS 2: Bloqué en processing
-    if (actualStatus === 'processing') {
-      console.warn(`⚠️ ${monthToMark} bloqué en 'processing'`);
-      
-      const fixConfirmed = window.confirm(
-        `🔧 PROBLÈME DÉTECTÉ\n\n` +
-        `Le mois ${monthToMark} est bloqué en "processing".\n\n` +
-        `Causes possibles:\n` +
-        `• Une précédente tentative a échoué\n` +
-        `• Le serveur a redémarré pendant traitement\n` +
-        `• Un timeout s'est produit\n\n` +
-        `Voulez-vous forcer la réinitialisation ?\n\n` +
-        `⚠️ Sécurisé - ne supprime pas les données\n` +
-        `✅ Débloque le mois pour paiement`
-      );
-      
-      if (fixConfirmed) {
-        toast.loading('Réinitialisation en cours...', { 
-          id: 'fix-toast',
-          duration: 10000
-        });
-        
-        try {
-          await api.post('/payroll/reset-month-status', { 
-            month_year: monthToMark,
-            force: true,
-            reason: 'stuck_in_processing'
-          });
-          toast.success('✅ Mois débloqué avec succès', { id: 'fix-toast' });
-        } catch (resetError) {
-          console.log('Pas d\'endpoint reset, on recharge simplement');
-          toast.info('Rechargement des données...', { id: 'fix-toast' });
-        }
-        
-        await loadPreview(true);
-        toast.dismiss('fix-toast');
-        toast.success('✅ Mois débloqué, vous pouvez réessayer', {
-          duration: 3000
-        });
-      } else {
-        toast.info('Paiement annulé - mois bloqué', {
-          duration: 3000
-        });
-      }
-      
-      console.groupEnd();
-      return;
-    }
-    
-    // CAS 3: Pas calculated (draft, pending, etc.)
-    if (actualStatus !== 'calculated') {
-      const currentStatus = actualStatus || 'inconnu';
-      
-      toast.error(
-        `❌ ACTION IMPOSSIBLE\n\n` +
-        `Le mois ${monthToMark} n'est pas prêt.\n` +
-        `📊 Statut actuel: ${currentStatus}\n` +
-        `✅ Statut requis: "calculated"\n\n` +
-        `Étapes nécessaires:\n` +
-        `1. Vérifier les données\n` +
-        `2. Calculer les salaires\n` +
-        `3. Valider les montants\n\n` +
-        `Exécutez d'abord le calcul des salaires.`,
-        { 
-          duration: 8000,
-          style: {
-            background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-            color: '#991b1b',
-            border: '2px solid #f87171',
-            borderRadius: '10px',
-            maxWidth: '500px'
-          }
-        }
-      );
-      
-      setActiveStep('calculate');
-      console.groupEnd();
-      return;
-    }
-    
-    console.log('✅ Statut vérifié - prêt pour paiement');
-    
-  } catch (statusError) {
-    console.warn('⚠️ Impossible de vérifier statut réel:', statusError.message);
-    
-    toast.error(
-      '⚠️ Vérification impossible\n\n' +
-      'Impossible de vérifier le statut exact du mois.\n' +
-      'Poursuite avec les données locales...\n\n' +
-      'Causes possibles:\n' +
-      '• Connexion instable\n' +
-      '• Serveur temporairement indisponible\n' +
-      '• Timeout de la requête',
-      { 
-        duration: 5000,
-        icon: '⚠️',
-        style: {
-          background: '#fef3c7',
-          color: '#92400e',
-          border: '1px solid #fbbf24'
-        }
-      }
-    );
-  }
-  // ==================== FIN VÉRIFICATION STATUT RÉEL ====================
-
-  // ✅ VÉRIFICATION PRÉALABLE CRITIQUE
-  if (!previewData?.payments || previewData.payments.length === 0) {
-    toast.error('❌ Aucun salaire calculé trouvé. Veuillez d\'abord calculer les salaires.', {
-      duration: 5000,
-      style: {
-        background: '#fef2f2',
-        color: '#991b1b',
-        border: '1px solid #f87171'
-      }
-    });
-    
-    setActiveStep('calculate');
-    console.groupEnd();
-    return;
-  }
-  
-  const validPayments = previewData.payments.filter(p => (p.net_salary || 0) > 0);
-  if (validPayments.length === 0) {
-    toast.error('❌ Aucun salaire valide à payer. Vérifiez les calculs.', {
-      duration: 5000,
-      style: {
-        background: '#fef3c7',
-        color: '#92400e',
-        border: '1px solid #fbbf24'
-      }
-    });
-    console.groupEnd();
-    return;
-  }
-
-  // ⚠️ MESSAGE DE CONFIRMATION DÉTAILLÉ
-  const totalAmount = previewData.stats?.totalAmount || 
-    validPayments.reduce((sum, p) => sum + (parseFloat(p.net_salary) || 0), 0);
-  
-  const confirmMessage = `🚨 ÊTES-VOUS ABSOLUMENT SÛR ?\n\n` +
-    `📅 Mois : ${monthToMark}\n` +
-    `👥 Employés : ${validPayments.length}\n` +
-    `💰 Montant total : ${new Intl.NumberFormat('fr-TN', {
-      style: 'currency',
-      currency: 'TND',
-      minimumFractionDigits: 0
-    }).format(totalAmount)}\n\n` +
-    `⚠️ CETTE ACTION EST IRRÉVERSIBLE !\n\n` +
-    `✓ Les emails seront envoyés aux employés\n` +
-    `✓ Le statut passera à "Payé"\n` +
-    `✓ Les paiements seront enregistrés\n` +
-    `✓ Le processus prend ~20-30 secondes\n\n` +
-    `Confirmez-vous le paiement de ce mois ?`;
-
-  // 🔴 CONFIRMATION EN DEUX ÉTAPES
-  const firstConfirm = window.confirm(
-    "🚨 ACTION CRITIQUE : Marquer comme payé\n\n" +
-    "Cette action va déclencher:\n" +
-    "• Envoi d'emails aux employés\n" +
-    "• Marquage définitif comme payé\n" +
-    "• Génération de justificatifs\n\n" +
-    "Cliquez sur OK pour continuer..."
-  );
-  
-  if (!firstConfirm) {
-    toast.info('Action annulée par l\'utilisateur', {
-      icon: 'ℹ️',
-      duration: 2000
-    });
-    console.groupEnd();
-    return;
-  }
-
-  const secondConfirm = window.confirm(confirmMessage);
-  if (!secondConfirm) {
-    toast.info('Paiement annulé', {
-      icon: '⚠️',
-      duration: 2000
-    });
-    console.groupEnd();
-    return;
-  }
-
-  // ✅ DÉBUT DU TRAITEMENT
-  try {
-    // 🔐 VERROUILLAGE POUR EMPÊCHER LES DOUBLONS
-    isMarkingAsPaidRef.current = true;
-    setMarkingAsPaid(true);
-    
-    // 🎯 INDICATEUR VISUEL DE DÉMARRAGE
-    const processingToast = toast.loading(
-      `🚀 Lancement du paiement pour ${monthToMark}\n\n` +
-      `⏳ Début: ${new Date().toLocaleTimeString('fr-FR')}\n` +
-      `👥 Employés: ${validPayments.length}\n` +
-      `💰 Total: ${new Intl.NumberFormat('fr-TN', {
-        style: 'currency',
-        currency: 'TND'
-      }).format(totalAmount)}\n\n` +
-      `🔄 Traitement en cours... (30s max)`,
-      {
-        duration: null,
-        position: 'top-center',
-        style: {
-          background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
-          color: '#0369a1',
-          border: '2px solid #7dd3fc',
-          borderRadius: '12px',
-          minWidth: '400px',
-          fontSize: '14px'
-        }
-      }
-    );
-
-    console.log('🔗 Appel API POST /payroll/mark-month-as-paid', { 
-      month_year: monthToMark,
-      session_id: debugSessionId,
-      employee_count: validPayments.length,
-      total_amount: totalAmount
-    });
-    
-    // 📡 APPEL API
-    const response = await api.post('/payroll/mark-month-as-paid', {
-      month_year: monthToMark,
-      metadata: {
-        session_id: debugSessionId,
-        initiated_at: new Date().toISOString(),
-        employee_count: validPayments.length,
-        estimated_total: totalAmount,
-        user_agent: navigator.userAgent.substring(0, 200)
-      }
-    }, {
-      timeout: 45000,
-    });
-
-    console.log('✅ Réponse complète du serveur:', response);
-    
-    // 🔥 SOLUTION 3 : EXTRACTION UNIVERSELLE
-    // Fonction pour extraire une valeur de n'importe où dans l'objet
-    const extractValue = (obj, key) => {
-      if (!obj || typeof obj !== 'object') return undefined;
-      
-      // 1. Chercher directement à ce niveau
-      if (obj[key] !== undefined) {
-        console.log(`✅ Trouvé ${key} directement:`, obj[key]);
-        return obj[key];
-      }
-      
-      // 2. Chercher dans obj.data
-      if (obj.data && obj.data[key] !== undefined) {
-        console.log(`✅ Trouvé ${key} dans obj.data:`, obj.data[key]);
-        return obj.data[key];
-      }
-      
-      // 3. Chercher dans obj.data.data (structure double nesting)
-      if (obj.data && obj.data.data && obj.data.data[key] !== undefined) {
-        console.log(`✅ Trouvé ${key} dans obj.data.data:`, obj.data.data[key]);
-        return obj.data.data[key];
-      }
-      
-      // 4. Chercher récursivement dans tous les sous-objets
-      for (const k in obj) {
-        if (typeof obj[k] === 'object' && obj[k] !== null) {
-          const found = extractValue(obj[k], key);
-          if (found !== undefined) {
-            console.log(`✅ Trouvé ${key} dans obj.${k}:`, found);
-            return found;
-          }
-        }
-      }
-      
-      console.log(`❌ ${key} non trouvé dans l'objet`);
-      return undefined;
-    };
-
-    // Extraire toutes les valeurs
-    const emailsSent = extractValue(response, 'emails_sent') || validPayments.length;
-    const emailsFailed = extractValue(response, 'emails_failed') || 0;
-    const employeesPaid = extractValue(response, 'employees_paid') || validPayments.length;
-    const totalPaid = extractValue(response, 'total_paid') || totalAmount;
-    const emailDetails = extractValue(response, 'email_details') || [];
-
-    console.log('🎯 VALEURS FINALES EXTRAITES:', {
-      emailsSent,
-      emailsFailed,
-      employeesPaid,
-      totalPaid,
-      emailDetailsLength: emailDetails.length
-    });
-
-    // TEST : Vérifiez aussi avec une requête fetch directe pour comparer
-    try {
-      const directResponse = await fetch('http://localhost:5000/api/payroll/mark-month-as-paid', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        },
-        body: JSON.stringify({ month_year: monthToMark })
-      });
-      
-      const directData = await directResponse.json();
-      console.log('🔍 TEST DIRECT FETCH:', {
-        emails_sent: directData.data?.emails_sent,
-        structure: directData
-      });
-    } catch (fetchError) {
-      console.warn('Test fetch échoué:', fetchError.message);
-    }
-    
-    // 📊 TRAITEMENT DE LA RÉPONSE
-    const responseData = response.data || response;
-    setPaymentValidation(responseData);
-    
-    // 📧 STATISTIQUES DES EMAILS
-    setEmailStats({
-      sent: emailsSent,
-      failed: emailsFailed,
-      details: emailDetails,
-      total: emailsSent + emailsFailed
-    });
-
-    // 🔄 RECHARGEMENT DES DONNÉES
-    await loadPreview(true);
-    
-    // ✅ SUCCÈS - MISE À JOUR DE L'INTERFACE
-    toast.dismiss(processingToast);
-    
-    // MESSAGE FINAL AVEC LES BONNES VALEURS
-    const successMessage = `🎉 PAIEMENT CONFIRMÉ !\n\n` +
-      `📅 Mois: ${monthToMark}\n` +
-      `👥 ${employeesPaid} employés payés\n` +
-      `📧 ${emailsSent} emails envoyés avec succès\n` +
-      `❌ ${emailsFailed} emails échoués\n` +
-      `💰 Total payé: ${new Intl.NumberFormat('fr-TN', {
-        style: 'currency',
-        currency: 'TND'
-      }).format(totalPaid)}\n\n` +
-      `⏱️ Traitement: ${((Date.now() - parseInt(debugSessionId.split('-')[1])) / 1000).toFixed(1)}s`;
-
-    toast.success(successMessage, {
-      icon: '✅',
-      duration: 8000,
-      style: {
-        background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
-        color: '#065f46',
-        border: '2px solid #10b981',
-        borderRadius: '12px',
-        minWidth: '450px',
-        fontSize: '14px'
-      },
-      position: 'top-center'
-    });
-    
-    // 📈 MESSAGE DÉTAILLÉ COMPLÉMENTAIRE
-    setTimeout(() => {
-      if (emailsFailed > 0) {
-        toast.error(
-          `⚠️ ${emailsFailed} email(s) non envoyé(s)\n` +
-          `Consultez les logs pour plus de détails`,
-          {
-            duration: 6000,
-            position: 'bottom-right'
-          }
-        );
-      }
-    }, 1500);
-    
-    // 🎯 PASSAGE À L'ÉTAPE FINALE
-    setActiveStep('complete');
-    
-    // 📤 NOTIFICATION AU PARENT
-    if (onSuccess) {
-      console.log('📤 Appel onSuccess - AVEC FLAGS EXPLICITES POUR ÉVITER LE RECALCUL');
-      
-      const paymentNotification = {
-        type: 'PAYMENT_COMPLETED',
-        action: 'MARKED_AS_PAID',
-        month_year: monthToMark,
-        success: true,
-        data: {
-          employees_paid: employeesPaid,
-          emails_sent: emailsSent,
-          emails_failed: emailsFailed,
-          total_paid: totalPaid,
-          email_details: emailDetails
-        },
-        _notificationType: 'payment',
-        _shouldNotRecalculate: true,
-        _isPaymentNotification: true,
-        _doNotCalculate: true,
-        message: 'PAYMENT_NOTIFICATION_DO_NOT_CALCULATE',
-        timestamp: new Date().toISOString(),
-        session_id: debugSessionId,
-        source: 'CalculateSalariesModal.handleMarkAsPaid',
-        version: '1.0'
-      };
-      
-      console.log('📤 Envoi notification:', paymentNotification);
-      onSuccess(paymentNotification);
-    }
-    
-  } catch (error) {
-    console.error('❌ ERREUR lors du marquage comme payé:', error);
-    
-    // 📋 LOGS DÉTAILLÉS POUR LE DÉBOGAGE
-    const errorDetails = {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      message: error.message,
-      code: error.code,
-      url: error.config?.url,
-      method: error.config?.method,
-      session_id: debugSessionId,
-      timestamp: new Date().toISOString()
-    };
-    
-    console.error('📋 Détails de l\'erreur:', errorDetails);
-
-    // 🚨 GESTION DES ERREURS SPÉCIFIQUES
-    let errorTitle = 'Erreur';
-    let errorMessage = 'Erreur inconnue lors du marquage comme payé';
-    let errorDuration = 6000;
-    let errorStyle = {
-      background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-      color: '#991b1b',
-      border: '2px solid #f87171',
-      borderRadius: '10px'
-    };
-
-    const errorData = error.response?.data || {};
-    const errorMessageLower = (error.message || '').toLowerCase();
-    
-    // 📡 ERREURS HTTP SPÉCIFIQUES
-    if (error.response?.status === 400) {
-      errorTitle = 'Validation échouée';
-      errorMessage = errorData.message || 'Données invalides';
-      
-      if (errorMessageLower.includes('déjà payé') || 
-          errorMessageLower.includes('already paid') ||
-          errorMessageLower.includes('a déjà été payé') ||
-          errorData.code === 'MONTH_ALREADY_PAID') {
-        
-        errorTitle = '✅ Mois déjà payé';
-        errorStyle = {
-          background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
-          color: '#0369a1',
-          border: '2px solid #7dd3fc',
-          borderRadius: '10px'
-        };
-        
-        let detailedMessage = `Le mois ${monthToMark} est déjà marqué comme payé`;
-        
-        if (errorData.data?.paid_at) {
-          const paidDate = new Date(errorData.data.paid_at);
-          const formattedDate = paidDate.toLocaleDateString('fr-FR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-          detailedMessage += `\n📅 Payé le: ${formattedDate}`;
-        }
-        
-        if (errorData.data?.paid_by) {
-          detailedMessage += `\n👤 Par: ${errorData.data.paid_by}`;
-        }
-        
-        errorMessage = detailedMessage;
-        
-        toast.dismiss();
-        toast.success(errorMessage, {
-          icon: '🎉',
-          duration: 8000,
-          style: errorStyle,
-          position: 'top-center'
-        });
-        
-        await loadPreview(true);
-        setActiveStep('complete');
-        
-        if (onSuccess) {
-          onSuccess({
-            type: 'already-paid-notification',
-            month_year: monthToMark,
-            status: 'already_paid',
-            message: errorMessage,
-            data: errorData.data,
-            timestamp: new Date().toISOString()
-          });
-        }
-        
-        console.groupEnd();
-        return;
-      }
-      
-    } else if (error.response?.status === 409) {
-      errorTitle = 'Conflit détecté';
-      errorMessage = errorData.message || 'Un traitement est déjà en cours pour ce mois';
-      errorStyle = {
-        background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-        color: '#92400e',
-        border: '2px solid #fbbf24',
-        borderRadius: '10px'
-      };
-      
-    } else if (error.response?.status === 500) {
-      errorTitle = 'Erreur serveur interne';
-      errorMessage = 'Le serveur a rencontré une erreur. Contactez l\'administrateur.';
-      
-    } else if (error.message?.includes('Network Error')) {
-      errorTitle = 'Erreur réseau';
-      errorMessage = 'Impossible de contacter le serveur. Vérifiez votre connexion internet.';
-      
-    } else if (error.message?.includes('timeout')) {
-      errorTitle = 'Délai expiré';
-      errorMessage = 'La requête a pris trop de temps. Le serveur est peut-être surchargé.';
-      
-    } else if (!error.response) {
-      errorTitle = 'Connexion impossible';
-      errorMessage = 'Serveur inaccessible. Vérifiez que le backend est démarré et accessible.';
-    }
-
-    // 🚨 AFFICHAGE DE L'ERREUR
-    toast.error(`${errorTitle}\n\n${errorMessage}`, {
-      icon: '❌',
-      duration: errorDuration,
-      style: errorStyle,
-      position: 'top-center'
-    });
-
-    // 🔄 RÉINITIALISATION EN CAS D'ERREUR
-    if (error.response?.status !== 400) {
-      setTimeout(() => {
-        setMarkingAsPaid(false);
-        isMarkingAsPaidRef.current = false;
-      }, 3000);
-    }
-    
-  } finally {
-    // 🔓 DÉVERROUILLAGE APRÈS LE TRAITEMENT
-    setTimeout(() => {
-      isMarkingAsPaidRef.current = false;
-      setMarkingAsPaid(false);
-      console.log('🔓 Verrouillage libéré');
-    }, 2000);
-    
-    console.groupEnd();
-  }
-};
 
   const getSelectedMonthName = () => {
     const month = availableMonths.find(m => m.month_year === selectedMonth);
@@ -977,14 +408,6 @@ const CalculateSalariesModal = ({
 
   const isMonthCalculated = () => {
     return getMonthStatus() === 'calculated';
-  };
-
-  const canCalculate = () => {
-    return previewData; // TOUJOURS permettre le calcul, même pour les mois payés
-  };
-
-  const canMarkAsPaid = () => {
-    return previewData && (isMonthCalculated() || results) && !isMonthPaid();
   };
 
   const getStatusBadge = (status) => {
@@ -1016,7 +439,6 @@ const CalculateSalariesModal = ({
       { key: 'select', label: 'Sélection', icon: Calendar },
       { key: 'preview', label: 'Prévisualisation', icon: CreditCard },
       { key: 'calculate', label: 'Calcul', icon: Calculator },
-      { key: 'mark-paid', label: 'Paiement', icon: DollarSign },
       { key: 'complete', label: 'Terminé', icon: CheckCircle }
     ];
 
@@ -1061,7 +483,6 @@ const CalculateSalariesModal = ({
           })}
         </div>
         
-        {/* Ligne de progression */}
         <div className="h-2 bg-gray-200 rounded-full overflow-hidden mt-6">
           <div 
             className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
@@ -1128,7 +549,6 @@ const CalculateSalariesModal = ({
               {getStatusBadge(getMonthStatus())}
             </div>
             
-            {/* Message modifié pour permettre le recalcul */}
             {monthIsPaid && (
               <Card className="p-4 mb-6 bg-yellow-50 border-yellow-200">
                 <div className="flex items-center">
@@ -1153,7 +573,7 @@ const CalculateSalariesModal = ({
                   </span>
                 </div>
                 <p className="text-sm text-blue-700 mt-1">
-                  Ce mois a déjà été calculé. Vous pouvez le recalculer ou le marquer comme payé.
+                  Ce mois a déjà été calculé. Vous pouvez le recalculer.
                 </p>
               </Card>
             )}
@@ -1225,11 +645,9 @@ const CalculateSalariesModal = ({
                 ← Retour
               </Button>
               
-              {/* TOUJOURS afficher le bouton, même pour les mois payés */}
               <Button
                 onClick={() => {
                   if (monthIsPaid) {
-                    // Demander confirmation pour le recalcul
                     if (window.confirm(`⚠️ Ce mois (${getSelectedMonthName()}) est déjà marqué comme payé.\n\nUn recalcul modifiera les montants existants.\n\nVoulez-vous continuer quand même ?`)) {
                       setActiveStep('calculate');
                     }
@@ -1264,7 +682,6 @@ const CalculateSalariesModal = ({
               </p>
             </div>
             
-            {/* Avertissement spécifique pour les recalculs */}
             {isRecalculating && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
                 <div className="flex items-start">
@@ -1275,9 +692,8 @@ const CalculateSalariesModal = ({
                       Ce mois est déjà marqué comme "Payé". Un recalcul va :
                       <ul className="list-disc ml-4 mt-1 space-y-1">
                         <li>Mettre à jour les montants des salaires</li>
-                        <li>Conserver le statut "Payé" (sauf si vous changez manuellement)</li>
+                        <li>Conserver le statut "Payé"</li>
                         <li>Modifier les fiches de paie existantes</li>
-                        <li>Mettre à jour l'historique des paiements</li>
                       </ul>
                     </p>
                   </div>
@@ -1351,194 +767,6 @@ const CalculateSalariesModal = ({
           </div>
         );
 
-      case 'mark-paid':
-        return (
-          <div>
-            <div className="text-center mb-8">
-              <DollarSign className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Validation des paiements</h3>
-              <p className="text-gray-600">Marquez le mois comme payé et finalisez le processus</p>
-            </div>
-            
-            {results && (
-              <Card className="p-6 mb-6 bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
-                <div className="text-center mb-6">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                    {isMonthPaid() ? 'Recalcul terminé avec succès !' : 'Calcul terminé avec succès !'}
-                  </h4>
-                  <p className="text-gray-600">
-                    Les salaires ont été {isMonthPaid() ? 'recalculés' : 'calculés'} pour {results.data?.calculated || results.calculated || 0} employés.
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="text-center p-3 bg-white rounded-lg shadow-sm">
-                    <div className="text-2xl font-bold text-green-600">{results.data?.calculated || results.calculated || 0}</div>
-                    <div className="text-sm text-gray-600">Calculés</div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-white rounded-lg shadow-sm">
-                    <div className="text-2xl font-bold text-red-600">{results.data?.failed || results.failed || 0}</div>
-                    <div className="text-sm text-gray-600">Échecs</div>
-                  </div>
-                  
-                  <div className="text-center p-3 bg-white rounded-lg shadow-sm">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {new Intl.NumberFormat('fr-TN', {
-                        style: 'currency',
-                        currency: 'TND',
-                        minimumFractionDigits: 0
-                      }).format(results.data?.total_amount || results.total_amount || 0)}
-                    </div>
-                    <div className="text-sm text-gray-600">Total</div>
-                  </div>
-                </div>
-                
-                {calculationErrors.length > 0 && (
-                  <div className="mb-6">
-                    <h5 className="font-medium text-red-700 mb-2">Erreurs rencontrées:</h5>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {calculationErrors.map((error, index) => (
-                        <div key={index} className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                          {error.employee_id}: {error.message}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </Card>
-            )}
-            
-            {/* Masquer la section "Marquer comme payé" si le mois est déjà payé */}
-            {!isMonthPaid() && (
-              <Card className="p-6 mb-6">
-                <h4 className="font-medium text-gray-900 mb-4">Étape finale : Validation</h4>
-                
-                <div className="space-y-4 mb-6">
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center text-sm font-bold mr-3">
-                      1
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Marquer comme payé</p>
-                      <p className="text-sm text-gray-600">Change le statut du mois de "Calculé" à "Payé"</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center text-sm font-bold mr-3">
-                      2
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Envoi des emails</p>
-                      <p className="text-sm text-gray-600">Envoi des fiches de paie par email aux employés</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-800 rounded-full flex items-center justify-center text-sm font-bold mr-3">
-                      3
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Mise à jour des statistiques</p>
-                      <p className="text-sm text-gray-600">Met à jour les totaux et statistiques du système</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center">
-                    <Mail className="w-5 h-5 text-blue-500 mr-2" />
-                    <span className="text-blue-700 font-medium">Notification par email</span>
-                  </div>
-                  <p className="text-sm text-blue-600 mt-1">
-                    Les employés recevront leur fiche de paie par email. Vérifiez que les adresses email sont correctes.
-                  </p>
-                </div>
-                
-                <Button
-                  onClick={handleMarkAsPaid}
-                  className="w-full py-3"
-                  disabled={markingAsPaid || !canMarkAsPaid()}
-                  variant="success"
-                >
-                  {markingAsPaid ? (
-                    <span className="flex items-center justify-center">
-                      <Loader className="animate-spin w-5 h-5 mr-2" />
-                      Validation en cours...
-                    </span>
-                  ) : (
-                    <>
-                      <DollarSign className="w-5 h-5 mr-2" />
-                      ✓ Marquer le mois comme payé et envoyer les emails
-                    </>
-                  )}
-                </Button>
-                
-                <p className="text-xs text-gray-500 text-center mt-3">
-                  Cette action est définitive. Assurez-vous que tous les calculs sont corrects.
-                </p>
-              </Card>
-            )}
-            
-            {/* Si le mois est déjà payé, afficher une option différente */}
-            {isMonthPaid() && (
-              <Card className="p-6 mb-6 bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
-                <div className="text-center mb-4">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">Recalcul terminé !</h4>
-                  <p className="text-gray-600">
-                    Le mois reste marqué comme "Payé". Les montants ont été mis à jour.
-                  </p>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Mois:</span>
-                    <span className="font-medium">{getSelectedMonthName()}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Statut:</span>
-                    <Badge color="green">Payé</Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Action:</span>
-                    <span className="font-medium text-green-600">Recalcul effectué</span>
-                  </div>
-                </div>
-                
-                <Button
-                  onClick={() => setActiveStep('complete')}
-                  className="w-full mt-6"
-                  variant="primary"
-                >
-                  ✅ Terminer le processus
-                </Button>
-              </Card>
-            )}
-            
-            <div className="flex justify-between">
-              <Button
-                onClick={() => setActiveStep('calculate')}
-                variant="outline"
-              >
-                ← {isMonthPaid() ? 'Recalculer à nouveau' : 'Recalculer'}
-              </Button>
-              
-              {/* Bouton pour passer directement à la fin si le mois est payé */}
-              {isMonthPaid() && (
-                <Button
-                  onClick={() => setActiveStep('complete')}
-                  variant="primary"
-                >
-                  Terminer →
-                </Button>
-              )}
-            </div>
-          </div>
-        );
-
       case 'complete':
         return (
           <div className="text-center py-8">
@@ -1556,71 +784,75 @@ const CalculateSalariesModal = ({
                 </div>
                 
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Statut:</span>
-                  <Badge color="green">Payé</Badge>
+                  <span className="text-gray-600">Employés calculés:</span>
+                  <span className="font-bold text-blue-600">
+                    {results?.data?.calculated || results?.calculated || previewData?.stats?.withConfig || 0}
+                  </span>
                 </div>
                 
-                {paymentValidation?.data && (
+                {/* AFFICHAGE DES RÉSULTATS DES EMAILS */}
+                {emailResults && (
                   <>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Employés payés:</span>
-                      <span className="font-bold text-green-600">
-                        {paymentValidation.data.employees_paid || paymentValidation.employees_paid || 0}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Montant total:</span>
-                      <span className="font-bold text-blue-600">
-                        {new Intl.NumberFormat('fr-TN', {
-                          style: 'currency',
-                          currency: 'TND',
-                          minimumFractionDigits: 0
-                        }).format(paymentValidation.data.total_paid || paymentValidation.total_paid || 0)}
-                      </span>
-                    </div>
-                    
-                    {/* Statistiques d'emails */}
-                    {(emailStats || paymentValidation.data.emails_sent !== undefined) && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <div className="flex items-center justify-center mb-2">
-                          <Mail className="w-5 h-5 text-green-500 mr-2" />
-                          <span className="text-gray-700 font-medium">Emails envoyés</span>
+                    <div className="pt-4 border-t border-gray-200">
+                      <div className="flex items-center justify-center mb-3">
+                        <Mail className="w-5 h-5 text-green-500 mr-2" />
+                        <span className="text-gray-700 font-medium">Résultat des emails</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center p-3 bg-green-50 rounded-lg">
+                          <div className="text-xl font-bold text-green-600">
+                            {emailResults.sent}
+                          </div>
+                          <div className="text-xs text-gray-600">Envoyés</div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="text-center p-2 bg-green-50 rounded-lg">
-                            <div className="text-lg font-bold text-green-600">
-                              {emailStats?.sent || paymentValidation.data.emails_sent || 0}
-                            </div>
-                            <div className="text-xs text-gray-600">Envoyés</div>
+                        
+                        <div className="text-center p-3 bg-red-50 rounded-lg">
+                          <div className="text-xl font-bold text-red-600">
+                            {emailResults.failed}
                           </div>
-                          <div className="text-center p-2 bg-red-50 rounded-lg">
-                            <div className="text-lg font-bold text-red-600">
-                              {emailStats?.failed || paymentValidation.data.emails_failed || 0}
-                            </div>
-                            <div className="text-xs text-gray-600">Échecs</div>
-                          </div>
+                          <div className="text-xs text-gray-600">Échecs</div>
                         </div>
                       </div>
-                    )}
+                      
+                      {emailResults.failed > 0 && (
+                        <div className="mt-3 text-sm text-yellow-700 bg-yellow-50 p-2 rounded">
+                          ⚠️ {emailResults.failed} email(s) non envoyés
+                        </div>
+                      )}
+                    </div>
                   </>
                 )}
                 
-                {isMonthPaid() && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Action effectuée:</span>
-                    <span className="font-medium text-orange-600">Recalcul</span>
+                {/* BOUTON POUR ENVOYER LES EMAILS SI PAS ENCORE FAIT OU ÉCHEC */}
+                {(!emailResults || emailResults.failed > 0) && (
+                  <div className="mt-4">
+                    <Button
+                      onClick={sendPayslipEmails}
+                      disabled={sendingEmails}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      {sendingEmails ? (
+                        <span className="flex items-center justify-center">
+                          <Loader className="animate-spin w-4 h-4 mr-2" />
+                          Envoi en cours...
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center">
+                          <Mail className="w-4 h-4 mr-2" />
+                          {emailResults ? 'Renvoyer les emails échoués' : 'Envoyer les emails maintenant'}
+                        </span>
+                      )}
+                    </Button>
+                    
+                    <p className="text-xs text-gray-500 mt-2">
+                      Les employés recevront leur fiche de paie par email
+                    </p>
                   </div>
                 )}
               </div>
             </Card>
-            
-            <p className="text-gray-600 mb-8">
-              {isMonthPaid() 
-                ? 'Les montants ont été recalculés et mis à jour.'
-                : 'Le mois a été marqué comme payé. Vous pouvez maintenant :'
-              }
-            </p>
             
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button
@@ -1634,9 +866,12 @@ const CalculateSalariesModal = ({
                 onClick={() => {
                   onClose();
                   if (onSuccess) {
-                    onSuccess(paymentValidation);
+                    onSuccess({ 
+                      ...results, 
+                      emails: emailResults,
+                      action: 'calculated_with_emails' 
+                    });
                   }
-                  // Rafraîchir la page après un court délai
                   setTimeout(() => window.location.reload(), 300);
                 }}
                 variant="outline"
@@ -1664,13 +899,13 @@ const CalculateSalariesModal = ({
               Gestion des Salaires - {getSelectedMonthName() || 'Sélection'}
             </h3>
             <p className="text-sm text-gray-600 mt-1">
-              {isMonthPaid() ? 'Recalcul des salaires' : 'Processus complet de calcul et validation'}
+              {isMonthPaid() ? 'Recalcul des salaires' : 'Calcul et envoi des fiches de paie'}
             </p>
           </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            disabled={calculating || markingAsPaid}
+            disabled={calculating || sendingEmails}
           >
             <XCircle className="w-5 h-5 text-gray-500" />
           </button>
@@ -1681,10 +916,10 @@ const CalculateSalariesModal = ({
           {renderContent()}
         </div>
 
-        {/* Pied de page informatif */}
+        {/* Pied de page */}
         <div className="px-6 py-3 border-t border-gray-200 bg-gray-50">
           <div className="flex justify-between items-center text-sm text-gray-500">
-            <span>Module Paie • Étape {['select', 'preview', 'calculate', 'mark-paid', 'complete'].indexOf(activeStep) + 1}/5</span>
+            <span>Module Paie • Étape {['select', 'preview', 'calculate', 'complete'].indexOf(activeStep) + 1}/4</span>
             <span>{getSelectedMonthName() || 'Non sélectionné'}</span>
           </div>
         </div>

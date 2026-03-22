@@ -46,7 +46,7 @@ const ProfilePage = () => {
       const year = today.getFullYear();
       const month = today.getMonth() + 1;
       
-      // Essayer plusieurs ID possibles
+      // Essayer plusieurs ID possibles Button
       const employeeId = user?.employeeId || user?.employee_id || user?.id || 'EMP002';
       console.log('🔍 Chargement pour:', { employeeId, year, month, user });
       
@@ -184,15 +184,15 @@ const ProfilePage = () => {
         }
       }
 
-      // Si l'utilisateur est admin/manager, on met à jour l'email
-      if (user?.role === 'admin' || user?.role === 'manager') {
+      // Si l'utilisateur est admin, on met à jour l'email
+      if (user?.role === 'admin') {
         const updateData = {
           phone: profileData.phone,
           position: profileData.position,
           department: profileData.department
         };
 
-        // Ajouter l'email seulement si l'utilisateur est admin/manager
+        // Ajouter l'email seulement si l'utilisateur est admin
         if (emailChanged) {
           updateData.email = profileData.email;
         }
@@ -215,15 +215,8 @@ const ProfilePage = () => {
           toast.error(response?.message || 'Erreur lors de la mise à jour');
         }
       } else {
-        // Pour les employés, seulement les champs non-email
-        const updateData = {
-          phone: profileData.phone,
-          position: profileData.position,
-          department: profileData.department
-        };
-        
-        // Simuler la mise à jour pour l'instant
-        toast.success('Profil mis à jour avec succès');
+        // Pour les managers et employés, seulement afficher un message
+        toast.info('Seuls les administrateurs peuvent modifier le profil');
         setEditing(false);
       }
     } catch (error) {
@@ -347,9 +340,6 @@ const ProfilePage = () => {
     );
   }
 
-  // Vérifier si l'utilisateur peut modifier l'email
-  const canEditEmail = user?.role === 'admin' || user?.role === 'manager';
-
   return (
     <div className="space-y-6">
       {/* En-tête */}
@@ -372,8 +362,8 @@ const ProfilePage = () => {
                 Informations personnelles
               </h3>
               
-              {/* Bouton seulement pour admin et manager */}
-              {(user?.role === 'admin' || user?.role === 'manager') && (
+              {/* ✅ Bouton visible SEULEMENT pour admin */}
+              {user?.role === 'admin' && (
                 <Button
                   variant="outline"
                   size="small"
@@ -413,7 +403,7 @@ const ProfilePage = () => {
                   label="Email"
                   value={profileData.email}
                   onChange={(e) => setProfileData({...profileData, email: e.target.value})}
-                  disabled={!editing || !canEditEmail}
+                  disabled={user?.role !== 'admin' || !editing}
                   icon={FaEnvelope}
                   placeholder="votre@email.com"
                   type="email"
@@ -423,7 +413,7 @@ const ProfilePage = () => {
                   label="Téléphone"
                   value={profileData.phone}
                   onChange={(e) => setProfileData({...profileData, phone: e.target.value})}
-                  disabled={!editing || user?.role === 'employee'}
+                  disabled={user?.role !== 'admin' || !editing}
                   icon={FaPhone}
                   placeholder="+216 58 547 340"
                 />
@@ -432,7 +422,7 @@ const ProfilePage = () => {
                   label="Poste"
                   value={profileData.position}
                   onChange={(e) => setProfileData({...profileData, position: e.target.value})}
-                  disabled={!editing || user?.role === 'employee'}
+                  disabled={user?.role !== 'admin' || !editing}
                   icon={FaBriefcase}
                   placeholder="Manager"
                 />
@@ -441,7 +431,7 @@ const ProfilePage = () => {
                   label="Département"
                   value={profileData.department}
                   onChange={(e) => setProfileData({...profileData, department: e.target.value})}
-                  disabled={!editing || user?.role === 'employee'}
+                  disabled={user?.role !== 'admin' || !editing}
                   icon={FaBuilding}
                   placeholder="Direction"
                 />
@@ -454,18 +444,17 @@ const ProfilePage = () => {
                 />
               </div>
               
-              {/* Afficher un message si l'email ne peut pas être modifié */}
-              {editing && user?.role === 'employee' && (
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <p className="text-sm text-yellow-800">
-                    <span className="font-medium">Note :</span> Les employés ne peuvent pas modifier leur adresse email. 
-                    Contactez votre administrateur pour toute modification.
+              {/* ✅ Message informatif pour non-admin */}
+              {user?.role !== 'admin' && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-800">
+                    <span className="font-medium">Note :</span> Pour modifier vos informations, contactez un administrateur.
                   </p>
                 </div>
               )}
               
-              {/* Bouton enregistrer seulement pour admin et manager */}
-              {editing && (user?.role === 'admin' || user?.role === 'manager') && (
+              {/* ✅ Bouton enregistrer SEULEMENT pour admin */}
+              {editing && user?.role === 'admin' && (
                 <div className="flex justify-end pt-4">
                   <Button
                     variant="primary"
@@ -610,7 +599,7 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          {/* Changement de mot de passe */}
+          {/* Changement de mot de passe (accessible à tous) */}
           <div className="bg-white rounded-lg shadow">
             <div className="px-6 py-4 border-b">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
