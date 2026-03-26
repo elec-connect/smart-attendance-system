@@ -418,185 +418,79 @@ class AttendanceController {
 }
 
   async getAttendanceStats(req, res) {
-  try {
-    console.log('✅ getAttendanceStats appelé - VERSION EMPLOYÉ OK');
-    console.log(`👤 Utilisateur: ${req.user?.email} - Rôle: ${req.user?.role}`);
+    try {
+      console.log('✅ getAttendanceStats appelé');
 
-    if (!req.user) {
-      return this.sendUnauthorizedResponse(res);
-    }
+      if (!req.user) {
+        return this.sendUnauthorizedResponse(res);
+      }
 
-    const currentDate = new Date().toISOString().split('T')[0];
-
-    // ========== CAS EMPLOYÉ / MANAGER ==========
-    if (req.user.role === 'employee' || req.user.role === 'manager') {
-      console.log('📊 Récupération des statistiques personnelles pour:', req.user.email);
+      const permissions = this.getRolePermissions(req.user.role);
       
-      // Récupérer l'employee_id depuis la base
-      const employeeResult = await db.query(
-        'SELECT employee_id, first_name, last_name, department FROM employees WHERE id = $1',
-        [req.user.id]
+      if (req.user.role === 'employee' || req.user.role === 'manager') {
+        return this.sendForbiddenResponse(res, {
+          message: 'Accès non autorisé aux statistiques',
+          error: 'STATS_ACCESS_DENIED',
+          requiredRole: 'admin'
+        });
+      }
+
+      const currentDate = new Date().toISOString().split('T')[0];
+
+      const totalEmployeesResult = await db.query(
+        'SELECT COUNT(*) as total FROM employees WHERE is_active = true',
+        []
       );
-      
-      if (employeeResult.rows.length === 0) {
-        return this.sendNotFoundResponse(res, 'Employé non trouvé');
-      }
-      
-      const employee = employeeResult.rows[0];
-      const employeeCode = employee.employee_id;
-      
-      // 1. Statistiques mensuelles
-      const monthlyStats = await db.query(`
-        SELECT 
-          COUNT(*) as total_days,
-          SUM(CASE WHEN status IN ('present', 'checked_out') THEN 1 ELSE 0 END) as present_days,
-          SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late_days,
-          COALESCE(SUM(hours_worked), 0) as total_hours,
-          ROUND(AVG(hours_worked), 2) as avg_hours_per_day
-        FROM attendance 
-        WHERE employee_id = $1
-          AND attendance_date >= DATE_TRUNC('month', CURRENT_DATE)
-      `, [employeeCode]);
-      
-      // 2. Pointage du jour
-      const todayStats = await db.query(`
-        SELECT 
-          check_in_time,
-          check_out_time,
-          hours_worked,
-          status,
-          shift_name
-        FROM attendance 
-        WHERE employee_id = $1
-          AND attendance_date = $2
-      `, [employeeCode, currentDate]);
-      
-      // 3. Fiches de paie
-      const paySlips = await db.query(`
-        SELECT 
-          id,
-          month_year,
-          base_salary,
-          gross_salary,
-          net_salary,
-          days_present,
-          days_absent,
-          total_hours_worked,
-          payment_status,
-          payment_date,
-          created_at as generated_at
-        FROM salary_payments 
-        WHERE employee_id = $1
-        ORDER BY month_year DESC
-        LIMIT 12
-      `, [employeeCode]);
-      
-      const stats = monthlyStats.rows[0];
-      const today = todayStats.rows[0] || null;
-      
-      let attendanceRate = 0;
-      if (stats.total_days > 0) {
-        attendanceRate = (stats.present_days / stats.total_days) * 100;
-      }
-      
-      const formattedPaySlips = paySlips.rows.map(slip => ({
-        id: slip.id,
-        month_year: slip.month_year,
-        base_salary: parseFloat(slip.base_salary) || 0,
-        gross_salary: parseFloat(slip.gross_salary) || 0,
-        net_salary: parseFloat(slip.net_salary) || 0,
-        days_present: slip.days_present || 0,
-        days_absent: slip.days_absent || 0,
-        total_hours: parseFloat(slip.total_hours_worked) || 0,
-        status: slip.payment_status || 'generated',
-        payment_date: slip.payment_date,
-        generated_at: slip.generated_at
-      }));
-      
-      return res.json({
+
+      const presentTodayResult = await db.query(`
+        SELECT COUNT(DISTINCT a.employee_id) as present_count
+        FROM attendance a
+        INNER JOIN employees e ON a.employee_id = e.employee_id
+        WHERE a.record_date = $1
+          AND a.check_in_time IS NOT NULL
+          AND e.is_active = true
+      `, [currentDate]);
+
+      const checkedOutTodayResult = await db.query(`
+        SELECT COUNT(DISTINCT a.employee_id) as checked_out_count
+        FROM attendance a
+        INNER JOIN employees e ON a.employee_id = e.employee_id
+        WHERE a.record_date = $1
+          AND a.check_out_time IS NOT NULL
+          AND e.is_active = true
+      `, [currentDate]);
+
+      const lateTodayResult = await db.query(`
+        SELECT COUNT(DISTINCT a.employee_id) as late_count
+        FROM attendance a
+        INNER JOIN employees e ON a.employee_id = e.employee_id
+        WHERE a.record_date = $1
+          AND a.status = 'late'
+          AND e.is_active = true
+      `, [currentDate]);
+
+      const shiftStats = await this.getShiftStats(currentDate);
+
+      const totalEmployees = parseInt(totalEmployeesResult.rows[0].total) || 0;
+      const presentToday = parseInt(presentTodayResult.rows[0].present_count) || 0;
+      const checkedOutToday = parseInt(checkedOutTodayResult.rows[0].checked_out_count) || 0;
+      const lateToday = parseInt(lateTodayResult.rows[0].late_count) || 0;
+
+      const stats = this.calculateStats(totalEmployees, presentToday, checkedOutToday, lateToday);
+
+      res.json({
         success: true,
         data: {
-          employee: {
-            id: employeeCode,
-            name: `${employee.first_name} ${employee.last_name}`,
-            department: employee.department
-          },
-          monthly: {
-            total_days: parseInt(stats.total_days) || 0,
-            present_days: parseInt(stats.present_days) || 0,
-            late_days: parseInt(stats.late_days) || 0,
-            total_hours: parseFloat(stats.total_hours) || 0,
-            avg_hours_per_day: parseFloat(stats.avg_hours_per_day) || 0,
-            attendance_rate: attendanceRate.toFixed(2)
-          },
-          today: today ? {
-            check_in: today.check_in_time?.slice(0, 5) || null,
-            check_out: today.check_out_time?.slice(0, 5) || null,
-            hours_worked: parseFloat(today.hours_worked) || 0,
-            status: today.status,
-            shift: today.shift_name
-          } : null,
-          pay_slips: formattedPaySlips
+          ...stats,
+          byShift: shiftStats
         }
       });
+
+    } catch (error) {
+      console.error('❌ ERREUR getAttendanceStats:', error.message);
+      this.sendServerError(res, 'Erreur serveur', error);
     }
-    
-    // ========== CAS ADMIN ==========
-    // Admin voit toutes les statistiques globales
-    const totalEmployeesResult = await db.query(
-      'SELECT COUNT(*) as total FROM employees WHERE is_active = true',
-      []
-    );
-
-    const presentTodayResult = await db.query(`
-      SELECT COUNT(DISTINCT a.employee_id) as present_count
-      FROM attendance a
-      INNER JOIN employees e ON a.employee_id = e.employee_id
-      WHERE a.record_date = $1
-        AND a.check_in_time IS NOT NULL
-        AND e.is_active = true
-    `, [currentDate]);
-
-    const checkedOutTodayResult = await db.query(`
-      SELECT COUNT(DISTINCT a.employee_id) as checked_out_count
-      FROM attendance a
-      INNER JOIN employees e ON a.employee_id = e.employee_id
-      WHERE a.record_date = $1
-        AND a.check_out_time IS NOT NULL
-        AND e.is_active = true
-    `, [currentDate]);
-
-    const lateTodayResult = await db.query(`
-      SELECT COUNT(DISTINCT a.employee_id) as late_count
-      FROM attendance a
-      INNER JOIN employees e ON a.employee_id = e.employee_id
-      WHERE a.record_date = $1
-        AND a.status = 'late'
-        AND e.is_active = true
-    `, [currentDate]);
-
-    const shiftStats = await this.getShiftStats(currentDate);
-
-    const totalEmployees = parseInt(totalEmployeesResult.rows[0].total) || 0;
-    const presentToday = parseInt(presentTodayResult.rows[0].present_count) || 0;
-    const checkedOutToday = parseInt(checkedOutTodayResult.rows[0].checked_out_count) || 0;
-    const lateToday = parseInt(lateTodayResult.rows[0].late_count) || 0;
-
-    const stats = this.calculateStats(totalEmployees, presentToday, checkedOutToday, lateToday);
-
-    res.json({
-      success: true,
-      data: {
-        ...stats,
-        byShift: shiftStats
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ ERREUR getAttendanceStats:', error.message);
-    this.sendServerError(res, 'Erreur serveur', error);
   }
-}
 
   async getTodayAttendance(req, res) {
     try {
