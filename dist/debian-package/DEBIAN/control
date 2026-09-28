@@ -1,0 +1,10 @@
+Package: smart-attendance
+Version: 2.0.0
+Section: utils
+Priority: optional
+Architecture: all
+Maintainer: Smart Attendance <admin@smart-attendance.com>
+Description: Smart Attendance System - Complete Package
+ Gestion des presences par reconnaissance faciale
+Depends: nodejs (>= 18.0.0), postgresql (>= 15.0), postgresql-contrib, rsync
+Homepage: https://entreprise-1.smart-haouala.com

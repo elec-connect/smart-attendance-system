@@ -1,0 +1,7 @@
+#!/bin/bash
+set -e
+rm -rf /opt/smart-attendance
+rm -f /etc/systemd/system/smart-attendance.service
+systemctl daemon-reload
+userdel smartattendance 2>/dev/null || true
+echo "✅ Smart Attendance désinstallé"

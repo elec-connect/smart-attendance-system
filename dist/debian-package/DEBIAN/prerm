@@ -1,0 +1,4 @@
+#!/bin/bash
+set -e
+systemctl stop smart-attendance || true
+systemctl disable smart-attendance || true

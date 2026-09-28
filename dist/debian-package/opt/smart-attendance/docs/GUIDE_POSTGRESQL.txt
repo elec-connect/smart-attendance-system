@@ -1,0 +1,197 @@
+============================================================
+   GUIDE POSTGRESQL 18 + PGADMIN 4
+   Pour Smart Attendance System
+============================================================
+
+============================================================
+   1. QU'EST-CE QUE POSTGRESQL ?
+============================================================
+
+PostgreSQL est un système de gestion de base de données
+relationnelle (SGBDR) open-source, très puissant et fiable.
+
+Dans Smart Attendance, PostgreSQL stocke :
+  • Les employés
+  • Les présences (pointages)
+  • Les salaires et paies
+  • Les notifications
+  • La configuration
+
+============================================================
+   2. INFORMATIONS DE CONNEXION
+============================================================
+
+  Hôte       : localhost
+  Port       : 5432
+  Utilisateur: postgres
+  Mot de passe: [celui défini lors de l'installation]
+  Base       : smart_attendance_db
+
+============================================================
+   3. QU'EST-CE QUE PGADMIN 4 ?
+============================================================
+
+pgAdmin 4 est une interface graphique web pour gérer
+PostgreSQL. Il permet de :
+  • Visualiser les tables et les données
+  • Exécuter des requêtes SQL
+  • Sauvegarder / restaurer la base
+  • Gérer les utilisateurs et permissions
+
+============================================================
+   4. LANCER PGADMIN 4
+============================================================
+
+Option 1 : Menu Démarrer
+  • Menu Démarrer → pgAdmin 4
+
+Option 2 : Raccourci Smart Attendance
+  • Menu Démarrer → Ouvrir pgAdmin
+
+Option 3 : Directement
+  • C:\Program Files\pgAdmin 4\runtime\pgAdmin4.exe
+
+Au premier lancement, pgAdmin peut demander un mot de passe
+"master" pour protéger ses propres données. Choisissez-en un
+et NOTEZ-LE.
+
+============================================================
+   5. SE CONNECTER À LA BASE
+============================================================
+
+ÉTAPE 1 : Ouvrir pgAdmin 4
+
+ÉTAPE 2 : Dans le panneau de gauche, clic droit sur "Servers"
+          → Create → Server...
+
+ÉTAPE 3 : Onglet "General"
+  Name : Smart Attendance
+
+ÉTAPE 4 : Onglet "Connection"
+  Host name/address : localhost
+  Port              : 5432
+  Maintenance DB    : postgres
+  Username          : postgres
+  Password          : [mot de passe de l'installation]
+  ✅ Save password
+
+ÉTAPE 5 : Cliquer sur "Save"
+
+ÉTAPE 6 : La base smart_attendance_db apparaît dans l'arbre
+
+============================================================
+   6. EXPLORER LES TABLES
+============================================================
+
+Dans pgAdmin, développez l'arborescence :
+
+  Servers
+    └── Smart Attendance
+        └── Databases
+            └── smart_attendance_db
+                └── Schemas
+                    └── public
+                        └── Tables
+                            ├── employees
+                            ├── attendance
+                            ├── payroll
+                            ├── settings
+                            ├── email_accounts
+                            ├── shift_assignments
+                            └── ...
+
+Pour voir les données d'une table :
+  1. Clic droit sur la table → View/Edit Data → All Rows
+  2. OU clic droit → Query Tool → Écrire du SQL
+
+============================================================
+   7. REQUÊTES SQL UTILES
+============================================================
+
+Voir tous les employés :
+  SELECT * FROM employees;
+
+Voir les présences du jour :
+  SELECT * FROM attendance
+  WHERE attendance_date = CURRENT_DATE;
+
+Voir les salaires du mois :
+  SELECT * FROM payroll
+  WHERE month_year = '2026-09';
+
+Compter les employés actifs :
+  SELECT COUNT(*) FROM employees WHERE is_active = true;
+
+Voir la config entreprise :
+  SELECT config->'company' FROM settings WHERE id = 1;
+
+============================================================
+   8. SAUVEGARDER LA BASE
+============================================================
+
+IMPORTANT : Sauvegardez régulièrement !
+
+Méthode 1 : via pgAdmin
+  1. Clic droit sur smart_attendance_db
+  2. Backup...
+  3. Filename : sauvegarde_2026-09-27.backup
+  4. Format : Custom
+  5. Cliquer sur "Backup"
+
+Méthode 2 : en ligne de commande
+  Ouvrir cmd en admin :
+  
+  cd "C:\Program Files\PostgreSQL\18\bin"
+  pg_dump -U postgres -d smart_attendance_db -F c -f "C:\backup\sauvegarde.backup"
+
+Méthode 3 : script automatique
+  Créer un fichier backup.bat :
+
+  @echo off
+  set PGPASSWORD=votre_mot_de_passe
+  set DATE=%date:~-4%-%date:~3,2%-%date:~0,2%
+  "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -U postgres -d smart_attendance_db -F c -f "C:\backup\smart_attendance_%DATE%.backup"
+
+============================================================
+   9. RESTAURER LA BASE
+============================================================
+
+Via pgAdmin :
+  1. Clic droit sur smart_attendance_db
+  2. Restore...
+  3. Sélectionner le fichier .backup
+  4. Cliquer sur "Restore"
+
+En ligne de commande :
+  cd "C:\Program Files\PostgreSQL\18\bin"
+  set PGPASSWORD=votre_mot_de_passe
+  pg_restore -U postgres -d smart_attendance_db -c "C:\backup\sauvegarde.backup"
+
+============================================================
+   10. DÉPANNAGE
+============================================================
+
+PROBLÈME : "Connection refused"
+→ Le service PostgreSQL n'est pas démarré
+→ Ouvrir services.msc → postgresql-x64-18 → Démarrer
+
+PROBLÈME : "Password authentication failed"
+→ Vérifier le mot de passe dans le fichier IDENTIFIANTS_ADMIN.txt
+
+PROBLÈME : pgAdmin ne démarre pas
+→ Vérifier les logs :
+  C:\Users\[VotreNom]\AppData\Roaming\pgAdmin\pgadmin4.log
+
+PROBLÈME : Base de données corrompue
+→ Restaurer depuis une sauvegarde
+→ Contacter le support
+
+============================================================
+   11. SUPPORT
+============================================================
+
+  Site : https://Elec-connect.tn
+  Email: iot.sahnoun@gmail.com
+  Tél  : +216 29 328 870
+
+============================================================

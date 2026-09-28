@@ -1,0 +1,506 @@
+============================================================
+   GUIDE POSTGRESQL 18 + PGADMIN 4
+   Pour Smart Attendance System - LINUX
+============================================================
+
+Version : 2.0.0
+Date    : Septembre 2026
+
+============================================================
+   1. INFORMATIONS DE CONNEXION
+============================================================
+
+  Hôte        : localhost  (ou 127.0.0.1)
+  Port        : 5432
+  Utilisateur : postgres
+  Mot de passe: [défini lors de l'installation]
+  Base        : smart_attendance_db
+
+Ces informations sont dans :
+  /opt/smart-attendance/backend/.env
+
+Pour les consulter :
+  sudo cat /opt/smart-attendance/backend/.env | grep DB_
+
+============================================================
+   2. SE CONNECTER EN LIGNE DE COMMANDE
+============================================================
+
+Méthode 1 : En tant que superutilisateur postgres
+─────────────────────────────────────────────────
+  sudo -u postgres psql
+
+  Une invite apparaît :
+  postgres=#
+
+  Voir les bases :
+  \l
+
+  Se connecter à Smart Attendance :
+  \c smart_attendance_db
+
+  Voir les tables :
+  \dt
+
+  Voir les employés :
+  SELECT * FROM employees;
+
+  Quitter :
+  \q
+
+Méthode 2 : Avec mot de passe
+──────────────────────────────
+  # Lire le mot de passe
+  DB_PASSWORD=$(sudo grep "^DB_PASSWORD=" /opt/smart-attendance/backend/.env | cut -d '=' -f2-)
+
+  # Se connecter
+  PGPASSWORD="$DB_PASSWORD" psql -U postgres -h localhost -d smart_attendance_db
+
+============================================================
+   3. COMMANDES SQL UTILES
+============================================================
+
+Voir tous les employés :
+  SELECT employee_id, first_name, last_name, email, role
+  FROM employees
+  ORDER BY employee_id;
+
+Compter les employés actifs :
+  SELECT COUNT(*) FROM employees WHERE is_active = true;
+
+Voir les présences du jour :
+  SELECT e.employee_id, e.first_name, e.last_name,
+         a.check_in_time, a.check_out_time, a.status
+  FROM attendance a
+  JOIN employees e ON e.employee_id = a.employee_id
+  WHERE a.attendance_date = CURRENT_DATE;
+
+Voir la config entreprise :
+  SELECT config->'company' FROM settings WHERE id = 1;
+
+Voir les comptes email :
+  SELECT id, email, smtp_host, is_active, priority
+  FROM email_accounts
+  ORDER BY priority;
+
+Voir les salaires du mois :
+  SELECT * FROM payroll WHERE month_year = '2026-09';
+
+Taille de la base :
+  SELECT pg_size_pretty(pg_database_size('smart_attendance_db'));
+
+============================================================
+   4. INSTALLATION DE PGADMIN 4
+============================================================
+
+pgAdmin 4 est l'interface graphique web pour PostgreSQL.
+
+Méthode 1 : APT (Ubuntu/Debian)
+────────────────────────────────
+  # Ajouter le dépôt officiel
+  curl -fsS https://www.pgadmin.org/static/packages_pgadmin_org.pub | \
+      sudo gpg --dearmor -o /usr/share/keyrings/packages-pgadmin-org.gpg
+
+  sudo sh -c 'echo "deb [signed-by=/usr/share/keyrings/packages-pgadmin-org.gpg] \
+      https://ftp.postgresql.org/pub/pgadmin/pgadmin4/apt/$(lsb_release -cs) \
+      pgadmin4 main" > /etc/apt/sources.list.d/pgadmin4.list'
+
+  sudo apt update
+
+  # Installer (mode desktop + web)
+  sudo apt install pgadmin4 -y
+
+  # OU seulement le mode web
+  sudo apt install pgadmin4-web -y
+
+Méthode 2 : DOCKER (plus rapide)
+────────────────────────────────
+  docker run -d \
+      --name pgadmin4 \
+      -p 5050:80 \
+      -e 'PGADMIN_DEFAULT_EMAIL=admin@smart-attendance.local' \
+      -e 'PGADMIN_DEFAULT_PASSWORD=Admin123!' \
+      dpage/pgadmin4
+
+  # Accès : http://localhost:5050
+
+============================================================
+   5. CONFIGURATION DE PGADMIN 4 (WEB)
+============================================================
+
+Si vous avez installé via APT :
+
+  # Configurer pgAdmin (Apache)
+  sudo /usr/pgadmin4/bin/setup-web.sh
+
+  Le script va demander :
+  • Email administrateur pgAdmin
+  • Mot de passe pgAdmin
+
+  # Redémarrer Apache
+  sudo systemctl restart apache2
+
+Accès :
+  http://localhost/pgadmin4
+
+============================================================
+   6. AJOUTER LE SERVEUR DANS PGADMIN
+============================================================
+
+1. Ouvrir pgAdmin (http://localhost/pgadmin4)
+
+2. Se connecter avec l'email/mot de passe définis
+
+3. Clic droit sur "Servers" → "Create" → "Server..."
+
+4. Onglet "General" :
+   Name : Smart Attendance
+
+5. Onglet "Connection" :
+   Host name/address : localhost
+   Port              : 5432
+   Maintenance DB    : postgres
+   Username          : postgres
+   Password          : [mot de passe PostgreSQL]
+   ✅ Save password
+
+6. Cliquer sur "Save"
+
+7. La base smart_attendance_db apparaît
+
+============================================================
+   7. EXPLORER LES TABLES DANS PGADMIN
+============================================================
+
+Arborescence :
+
+  Servers
+    └── Smart Attendance
+        └── Databases
+            └── smart_attendance_db
+                └── Schemas
+                    └── public
+                        └── Tables
+                            ├── employees
+                            ├── attendance
+                            ├── payroll
+                            ├── payments
+                            ├── settings
+                            ├── notifications
+                            ├── email_accounts
+                            ├── email_settings
+                            ├── shift_assignments
+                            └── attendance_corrections
+
+Pour voir les données :
+  Clic droit sur une table → View/Edit Data → All Rows
+
+Pour exécuter du SQL :
+  Clic droit sur la base → Query Tool → Écrire le SQL
+
+============================================================
+   8. SAUVEGARDER LA BASE
+============================================================
+
+Méthode 1 : Script fourni (recommandé)
+──────────────────────────────────────
+  sudo /opt/smart-attendance/scripts/backup-database.sh
+
+  Les sauvegardes sont dans :
+  /opt/smart-attendance/backend/backups/
+
+Méthode 2 : Ligne de commande
+──────────────────────────────
+  # Lire le mot de passe
+  DB_PASSWORD=$(sudo grep "^DB_PASSWORD=" /opt/smart-attendance/backend/.env | cut -d '=' -f2-)
+
+  # Créer le dossier de sauvegarde
+  sudo mkdir -p /var/backups/smart-attendance
+
+  # Sauvegarder
+  PGPASSWORD="$DB_PASSWORD" pg_dump -U postgres \
+      -d smart_attendance_db \
+      -F c \
+      -f /var/backups/smart-attendance/sauvegarde_$(date +%Y-%m-%d).backup
+
+  # Vérifier
+  ls -lh /var/backups/smart-attendance/
+
+Méthode 3 : Depuis pgAdmin
+──────────────────────────
+  1. Clic droit sur smart_attendance_db
+  2. Backup...
+  3. Filename : /tmp/sauvegarde.backup
+  4. Format : Custom
+  5. Cliquer sur "Backup"
+
+Méthode 4 : Sauvegarde automatique (cron)
+──────────────────────────────────────────
+  sudo crontab -e
+
+  # Ajouter :
+  0 2 * * * /opt/smart-attendance/scripts/backup-database.sh >> \
+      /var/log/smart-attendance-backup.log 2>&1
+
+  # Sauvegarde quotidienne à 2h du matin
+
+============================================================
+   9. RESTAURER UNE SAUVEGARDE
+============================================================
+
+Méthode 1 : Script fourni
+─────────────────────────
+  sudo /opt/smart-attendance/scripts/restore-database.sh
+
+  Le script :
+  • Liste les sauvegardes disponibles
+  • Demande laquelle restaurer
+  • Fait une sauvegarde de sécurité avant
+  • Restaure
+
+Méthode 2 : Ligne de commande
+─────────────────────────────
+  # Arrêter le service
+  sudo systemctl stop smart-attendance
+
+  # Sauvegarde de sécurité
+  DB_PASSWORD=$(sudo grep "^DB_PASSWORD=" /opt/smart-attendance/backend/.env | cut -d '=' -f2-)
+  PGPASSWORD="$DB_PASSWORD" pg_dump -U postgres -d smart_attendance_db -F c \
+      -f /tmp/before_restore.backup
+
+  # Restaurer
+  PGPASSWORD="$DB_PASSWORD" pg_restore -U postgres \
+      -d smart_attendance_db \
+      --clean --if-exists \
+      /var/backups/smart-attendance/sauvegarde_2026-09-28.backup
+
+  # Redémarrer
+  sudo systemctl start smart-attendance
+
+============================================================
+   10. GÉRER LES UTILISATEURS POSTGRESQL
+============================================================
+
+Lister les utilisateurs :
+  sudo -u postgres psql -c "\du"
+
+Créer un nouvel utilisateur :
+  sudo -u postgres psql -c "CREATE USER monuser WITH PASSWORD 'monpass';"
+  sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE smart_attendance_db TO monuser;"
+
+Changer un mot de passe :
+  sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'nouveau_mdp';"
+
+Supprimer un utilisateur :
+  sudo -u postgres psql -c "DROP USER monuser;"
+
+============================================================
+   11. PERFORMANCES ET OPTIMISATION
+============================================================
+
+Voir les connexions actives :
+  sudo -u postgres psql -c "SELECT * FROM pg_stat_activity;"
+
+Voir la taille des tables :
+  sudo -u postgres psql -d smart_attendance_db -c "
+  SELECT 
+      relname AS table,
+      pg_size_pretty(pg_total_relation_size(relid)) AS size
+  FROM pg_catalog.pg_statio_user_tables
+  ORDER BY pg_total_relation_size(relid) DESC;"
+
+Analyser les tables (optimisation) :
+  sudo -u postgres psql -d smart_attendance_db -c "VACUUM ANALYZE;"
+
+Reconstruire les index :
+  sudo -u postgres psql -d smart_attendance_db -c "REINDEX DATABASE smart_attendance_db;"
+
+============================================================
+   12. CONFIGURATION POSTGRESQL
+============================================================
+
+Fichiers de configuration :
+  /etc/postgresql/18/main/postgresql.conf  ← Configuration principale
+  /etc/postgresql/18/main/pg_hba.conf      ← Authentification
+
+Modifier la config :
+  sudo nano /etc/postgresql/18/main/postgresql.conf
+
+Paramètres importants :
+  listen_addresses = 'localhost'      # Écouter sur localhost
+  max_connections = 100               # Nombre de connexions max
+  shared_buffers = 256MB              # Mémoire partagée
+  effective_cache_size = 1GB          # Cache disque
+
+Après modification :
+  sudo systemctl restart postgresql
+
+============================================================
+   13. AUTORISER LES CONNEXIONS DISTANTES
+============================================================
+
+Par défaut, PostgreSQL n'accepte que localhost.
+
+Pour autoriser un autre serveur (ex: 192.168.1.50) :
+
+1. Modifier postgresql.conf :
+   sudo nano /etc/postgresql/18/main/postgresql.conf
+   
+   Chercher et modifier :
+   listen_addresses = '*'
+
+2. Modifier pg_hba.conf :
+   sudo nano /etc/postgresql/18/main/pg_hba.conf
+   
+   Ajouter à la fin :
+   host    all    all    192.168.1.0/24    md5
+
+3. Redémarrer :
+   sudo systemctl restart postgresql
+
+4. Ouvrir le firewall :
+   sudo ufw allow 5432/tcp
+
+⚠️  ATTENTION : N'exposez JAMAIS PostgreSQL sur Internet !
+    Utilisez toujours un VPN ou un tunnel SSH.
+
+============================================================
+   14. LOGS ET DIAGNOSTIC
+============================================================
+
+Logs PostgreSQL :
+  sudo tail -f /var/log/postgresql/postgresql-18-main.log
+
+Logs pgAdmin (web) :
+  sudo tail -f /var/log/apache2/error.log
+
+Statut du service :
+  sudo systemctl status postgresql
+
+Démarrer/Arrêter/Redémarrer :
+  sudo systemctl start postgresql
+  sudo systemctl stop postgresql
+  sudo systemctl restart postgresql
+
+Tester la connexion :
+  sudo -u postgres psql -d smart_attendance_db -c "SELECT version();"
+
+============================================================
+   15. DÉPANNAGE
+============================================================
+
+PROBLÈME : "psql: could not connect to server"
+───────────────────────────────────────────────
+Cause : PostgreSQL n'est pas démarré
+
+Solution :
+  sudo systemctl status postgresql
+  sudo systemctl start postgresql
+  
+  # Vérifier le port
+  sudo ss -tuln | grep 5432
+
+PROBLÈME : "FATAL: password authentication failed"
+────────────────────────────────────────────────────
+Cause : Mauvais mot de passe
+
+Solution :
+  # Vérifier dans .env
+  sudo grep "DB_PASSWORD" /opt/smart-attendance/backend/.env
+  
+  # Réinitialiser le mot de passe
+  sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'nouveau_mdp';"
+  
+  # Mettre à jour .env
+  sudo nano /opt/smart-attendance/backend/.env
+
+PROBLÈME : "database smart_attendance_db does not exist"
+─────────────────────────────────────────────────────────
+Cause : La base a été supprimée ou jamais créée
+
+Solution :
+  sudo -u postgres psql -c "CREATE DATABASE smart_attendance_db;"
+  sudo -u postgres psql -d smart_attendance_db -f /opt/smart-attendance/scripts/install-postgres.sql
+
+PROBLÈME : pgAdmin ne démarre pas
+──────────────────────────────────
+Solution :
+  # Vérifier Apache
+  sudo systemctl status apache2
+  sudo systemctl restart apache2
+  
+  # Logs
+  sudo tail -f /var/log/apache2/error.log
+  
+  # Réinstaller la config
+  sudo /usr/pgadmin4/bin/setup-web.sh
+
+PROBLÈME : Base de données corrompue
+─────────────────────────────────────
+Solution :
+  1. Arrêter le service Smart Attendance
+     sudo systemctl stop smart-attendance
+  
+  2. Restaurer depuis une sauvegarde
+     sudo /opt/smart-attendance/scripts/restore-database.sh
+  
+  3. Redémarrer
+     sudo systemctl start smart-attendance
+  
+  Si pas de sauvegarde :
+     Contactez le support
+
+PROBLÈME : "Permission denied" sur les fichiers
+────────────────────────────────────────────────
+Solution :
+  sudo chown -R postgres:postgres /var/lib/postgresql
+  sudo chown -R smartattendance:smartattendance /opt/smart-attendance
+
+============================================================
+   16. SÉCURITÉ RECOMMANDÉE
+============================================================
+
+✅ À FAIRE
+─────────
+  • Utilisez un mot de passe fort (min 12 caractères)
+  • Ne partagez jamais le mot de passe PostgreSQL
+  • Sauvegardez régulièrement la base
+  • Limitez l'accès aux logs (chmod 640)
+  • Activez le firewall (ufw)
+  • Utilisez SSH avec clés (pas de mot de passe)
+  • Mettez à jour PostgreSQL régulièrement
+
+❌ À NE PAS FAIRE
+─────────────────
+  • Ne PAS exposer PostgreSQL sur Internet
+  • Ne PAS utiliser "trust" dans pg_hba.conf
+  • Ne PAS utiliser le compte postgres pour l'app
+  • Ne PAS stocker les mots de passe en clair
+  • Ne PAS laisser les ports 5432 ouverts publiquement
+
+============================================================
+   17. COMMANDES RAPIDES (MÉMO)
+============================================================
+
+Connexion :        sudo -u postgres psql
+Voir bases :       \l
+Changer base :     \c smart_attendance_db
+Voir tables :      \dt
+Voir données :     SELECT * FROM employees;
+Quitter :          \q
+Sauvegarder :      sudo /opt/smart-attendance/scripts/backup-database.sh
+Restaurer :        sudo /opt/smart-attendance/scripts/restore-database.sh
+Statut service :   sudo systemctl status postgresql
+Logs :             sudo tail -f /var/log/postgresql/postgresql-18-main.log
+
+============================================================
+   18. SUPPORT
+============================================================
+
+  Site  : https://Elec-connect.tn
+  Email : iot.sahnoun@gmail.com
+  Tél   : +216 29 328 870
+
+============================================================
+   © 2026 Smart Attendance System - Tous droits réservés
+============================================================

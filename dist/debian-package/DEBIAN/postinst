@@ -1,0 +1,68 @@
+#!/bin/bash
+set -e
+
+INSTALL_DIR="/opt/smart-attendance"
+BACKEND_DIR="$INSTALL_DIR/backend"
+SCRIPTS_DIR="$INSTALL_DIR/scripts"
+SERVICE_USER="smartattendance"
+DB_NAME="smart_attendance_db"
+DB_USER="postgres"
+DB_PASSWORD="Haouala18"
+
+if ! id "$SERVICE_USER" &>/dev/null; then
+    useradd -r -s /bin/false -d $INSTALL_DIR $SERVICE_USER
+fi
+
+mkdir -p $BACKEND_DIR/logs $BACKEND_DIR/uploads $BACKEND_DIR/temp_images $BACKEND_DIR/backups
+
+cd $BACKEND_DIR
+npm install --production || { echo "npm install échoué"; exit 1; }
+
+sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || \
+    sudo -u postgres psql -c "CREATE DATABASE $DB_NAME"
+
+sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname = '$DB_USER'" | grep -q 1 || \
+    sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD'"
+
+sudo -u postgres psql -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASSWORD'"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER"
+sudo -u postgres psql -d $DB_NAME -c "CREATE EXTENSION IF NOT EXISTS pgcrypto"
+
+if [ -f "$SCRIPTS_DIR/install-postgres.sql" ]; then
+    sudo -u postgres psql -d $DB_NAME -f "$SCRIPTS_DIR/install-postgres.sql"
+fi
+
+chown -R $SERVICE_USER:$SERVICE_USER $INSTALL_DIR
+chmod -R 750 $BACKEND_DIR
+chmod -R 770 $BACKEND_DIR/logs $BACKEND_DIR/uploads $BACKEND_DIR/temp_images $BACKEND_DIR/backups
+chmod +x $SCRIPTS_DIR/*.sh 2>/dev/null || true
+
+cat > /etc/systemd/system/smart-attendance.service << SERVICEEOF
+[Unit]
+Description=Smart Attendance Backend
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=$SERVICE_USER
+Group=$SERVICE_USER
+WorkingDirectory=$BACKEND_DIR
+ExecStart=/usr/bin/node $BACKEND_DIR/server.js
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+SERVICEEOF
+
+systemctl daemon-reload
+systemctl enable smart-attendance
+systemctl start smart-attendance
+
+echo "✅ Smart Attendance installé"
+echo "📡 API: http://localhost:5000/api"
+echo "📖 Doc: $INSTALL_DIR/docs/"

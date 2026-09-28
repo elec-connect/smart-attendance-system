@@ -1,0 +1,104 @@
+============================================================
+   SMART ATTENDANCE - GUIDE D'UTILISATION
+============================================================
+
+============================================================
+   1. ACCÉDER À L'APPLICATION
+============================================================
+
+Ouvrez votre navigateur (Chrome, Firefox, Edge) :
+
+  http://localhost:5173
+
+Ou depuis un autre appareil sur le réseau :
+  http://[IP_DU_SERVEUR]:5173
+
+Pour trouver l'IP :
+  Ouvrir cmd → ipconfig → chercher "Adresse IPv4"
+
+============================================================
+   2. PREMIÈRE CONNEXION
+============================================================
+
+  Email    : [celui défini lors de l'installation]
+  Mot de passe : [celui défini lors de l'installation]
+
+Consultez le fichier IDENTIFIANTS_ADMIN.txt sur le bureau.
+
+============================================================
+   3. MENU PRINCIPAL
+============================================================
+
+  📊 Tableau de bord  → Vue d'ensemble
+  👥 Employés         → Gérer les employés
+  📅 Présences        → Voir/pointer les présences
+  💰 Paie             → Gérer les salaires
+  📊 Rapports         → Exporter les données
+  ⚙️  Paramètres       → Configuration
+
+============================================================
+   4. CONFIGURATION RECOMMANDÉE (PREMIÈRE UTILISATION)
+============================================================
+
+1. Paramètres → Général
+   • Nom de l'entreprise
+   • Adresse
+   • Email de contact
+   • Téléphone
+
+2. Paramètres → Shifts
+   • Configurer les horaires de travail
+   • Définir les seuils de retard
+
+3. Paramètres → Emails
+   • Ajouter les comptes SMTP pour l'envoi de paie
+
+4. Paramètres → Réseau
+   • Configurer l'IP si accès distant
+
+============================================================
+   5. AJOUTER DES EMPLOYÉS
+============================================================
+
+Employés → Ajouter
+  • Nom, prénom, email
+  • CIN, CNSS
+  • Département, poste
+  • Date d'embauche
+  • Enregistrer
+
+============================================================
+   6. POINTAGE
+============================================================
+
+Méthode 1 : Reconnaissance faciale
+  Présences → Pointage facial
+  • Se placer face à la caméra
+  • Le système reconnaît l'employé
+  • Enregistrement automatique
+
+Méthode 2 : Manuel (admin)
+  Présences → Pointage manuel
+  • Sélectionner l'employé
+  • Choisir check-in / check-out
+
+============================================================
+   7. PAIE
+============================================================
+
+Paie → Mois
+  1. Sélectionner le mois
+  2. Cliquer sur "Calculer les salaires"
+  3. Vérifier
+  4. Générer les bulletins PDF
+  5. Envoyer par email
+
+============================================================
+   8. SUPPORT
+============================================================
+
+  Site : https://Elec-connect.tn
+  Email: iot.sahnoun@gmail.com
+  Tél  : +216 29 328 870
+
+============================================================
